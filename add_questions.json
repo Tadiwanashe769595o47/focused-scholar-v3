@@ -1,0 +1,100 @@
+{
+  "questions": [
+    {
+      "subject_code": "0580",
+      "topic": "Algebra",
+      "question_text": "Solve for x: 2x + 5 = 15",
+      "question_type": "numerical",
+      "correct_answer": "5",
+      "model_answer": "2x = 15 - 5 = 10, x = 10/2 = 5",
+      "explanation": {"why_correct": "Subtract 5 from both sides then divide by 2", "key_understanding": "Linear equations need inverse operations"},
+      "marks": 2,
+      "difficulty": 1,
+      "time_estimate": 60
+    },
+    {
+      "subject_code": "0580",
+      "topic": "Algebra",
+      "question_text": "What is the value of x in 3x - 7 = 2x + 4?",
+      "question_type": "numerical",
+      "correct_answer": "11",
+      "model_answer": "3x - 2x = 4 + 7, x = 11",
+      "explanation": {"why_correct": "Bring like terms together", "key_understanding": "Balance equation by doing same operation to both sides"},
+      "marks": 2,
+      "difficulty": 2,
+      "time_estimate": 60
+    },
+    {
+      "subject_code": "0580",
+      "topic": "Number",
+      "question_text": "Calculate: 144 ÷ 12",
+      "question_type": "numerical",
+      "correct_answer": "12",
+      "model_answer": "144 divided by 12 equals 12",
+      "explanation": {"why_correct": "Simple division", "key_understanding": "Basic arithmetic"},
+      "marks": 1,
+      "difficulty": 1,
+      "time_estimate": 30
+    },
+    {
+      "subject_code": "0580",
+      "topic": "Geometry",
+      "question_text": "Find the area of a rectangle with length 8cm and width 5cm.",
+      "question_type": "numerical",
+      "correct_answer": "40",
+      "model_answer": "Area = length × width = 8 × 5 = 40 cm²",
+      "explanation": {"why_correct": "Formula for rectangle area is length × width", "key_understanding": "Area = length × width"},
+      "marks": 2,
+      "difficulty": 1,
+      "time_estimate": 60
+    },
+    {
+      "subject_code": "0580",
+      "topic": "Algebra",
+      "question_text": "Solve for x: 4x - 3 = 2x + 9",
+      "question_type": "numerical",
+      "correct_answer": "6",
+      "model_answer": "4x - 2x = 9 + 3, 2x = 12, x = 6",
+      "explanation": {"why_correct": "Bring like terms to one side then divide", "key_understanding": "Inverse operations on both sides"},
+      "marks": 2,
+      "difficulty": 2,
+      "time_estimate": 60
+    },
+    {
+      "subject_code": "0580",
+      "topic": "Algebra",
+      "question_text": "What is 5x + 12 when x = 3?",
+      "question_type": "numerical",
+      "correct_answer": "27",
+      "model_answer": "5(3) + 12 = 15 + 12 = 27",
+      "explanation": {"why_correct": "Substitute value and multiply", "key_understanding": "Substitution"},
+      "marks": 2,
+      "difficulty": 1,
+      "time_estimate": 30
+    },
+    {
+      "subject_code": "0580",
+      "topic": "Number",
+      "question_text": "What is the square root of 169?",
+      "question_type": "numerical",
+      "correct_answer": "13",
+      "model_answer": "13 × 13 = 169",
+      "explanation": {"why_correct": "Find the number that multiplies by itself to give 169", "key_understanding": "Square roots"},
+      "marks": 1,
+      "difficulty": 2,
+      "time_estimate": 30
+    },
+    {
+      "subject_code": "0580",
+      "topic": "Geometry",
+      "question_text": "Find the perimeter of a square with side length 7cm.",
+      "question_type": "numerical",
+      "correct_answer": "28",
+      "model_answer": "Perimeter = 4 × side = 4 × 7 = 28 cm",
+      "explanation": {"why_correct": "All 4 sides are equal, multiply by 4", "key_understanding": "Perimeter of square = 4 × side"},
+      "marks": 2,
+      "difficulty": 1,
+      "time_estimate": 30
+    }
+  ]
+}

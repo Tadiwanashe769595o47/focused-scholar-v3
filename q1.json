@@ -1,0 +1,11 @@
+{
+  "subject_code": "0580",
+  "topic": "Algebra",
+  "question_text": "Solve for x: 2x + 5 = 15",
+  "question_type": "numerical",
+  "correct_answer": "5",
+  "model_answer": "2x = 15 - 5 = 10, x = 5",
+  "explanation_json": {"why_correct": "Subtract 5 then divide by 2"},
+  "marks": 2,
+  "difficulty": 1
+}

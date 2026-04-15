@@ -1,0 +1,44 @@
+{
+  "appId": "com.focusedscholar.app",
+  "productName": "Focused Scholar V3",
+  "directories": {
+    "output": "release",
+    "buildResources": "build"
+  },
+  "files": [
+    "dist/**/*",
+    "dist-electron/**/*",
+    "dist-server/**/*",
+    "server/supabase-schema.sql",
+    "package.json",
+    ".env",
+    ".env.example"
+  ],
+  "extraMetadata": {
+    "main": "dist-electron/main.cjs"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "build/icon.ico",
+    "artifactName": "${productName}-Setup-${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "allowElevation": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Focused Scholar V3",
+    "license": "LICENSE",
+    "deleteAppDataOnUninstall": true,
+    "installerIcon": "build/icon.ico",
+    "uninstallerIcon": "build/icon.ico",
+    "installerHeaderIcon": "build/icon.ico"
+  }
+}
