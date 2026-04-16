@@ -1,7 +1,8 @@
 /// <reference types="vite/client" />
 
 const isElectron = navigator.userAgent.toLowerCase().indexOf(' electron/') > -1 || (window as any).electronAPI !== undefined;
-const API_URL = (import.meta as any).env?.DEV ? '/api' : 'http://localhost:3000/api';
+// For web deployment, use environment variable or default to relative path
+const API_URL = (import.meta as any).env?.VITE_API_URL || (isElectron ? 'http://localhost:3000/api' : '/api');
 
 let serverReady = false;
 let serverCheckPromise: Promise<boolean> | null = null;

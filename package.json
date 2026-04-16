@@ -10,6 +10,7 @@
   "main": "dist-electron/main.cjs",
   "scripts": {
     "dev": "concurrently \"vite\" \"tsx server/index.ts\"",
+    "start": "tsx server/index.ts",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
