@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useDashboardStore } from '../stores/dashboardStore';
 import { apiFetch } from '../lib/api';
-import { ChevronLeft, BookOpen, Check, X } from 'lucide-react';
+import { ChevronLeft, BookOpen, Check, X, RotateCcw, Shuffle, Sparkles } from 'lucide-react';
+import { flashcardsData } from '../data/flashcardsContent';
 
 export default function Flashcards() {
   const navigate = useNavigate();
@@ -14,12 +15,14 @@ export default function Flashcards() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [shuffled, setShuffled] = useState(false);
 
-  const loadFlashcards = async (subjectCode: string) => {
+  const loadFlashcards = (subjectCode: string) => {
     setSelectedSubject(subjectCode);
     setLoading(true);
+    setShuffled(false);
     try {
-      const data = await apiFetch(`/questions/flashcards/${subjectCode}`);
+      const data = flashcardsData.filter(f => f.subject_code === subjectCode);
       setFlashcards(data);
       setCurrentIndex(0);
       setFlipped(false);
@@ -28,6 +31,18 @@ export default function Flashcards() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const shuffleCards = () => {
+    const shuffled = [...flashcardsData.filter(f => f.subject_code === selectedSubject)];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    setFlashcards(shuffled);
+    setCurrentIndex(0);
+    setFlipped(false);
+    setShuffled(true);
   };
 
   const currentCard = flashcards[currentIndex];

@@ -297,6 +297,17 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Study content for subjects
+CREATE TABLE IF NOT EXISTS study_content (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  subject_code TEXT NOT NULL REFERENCES subjects(code),
+  topic TEXT NOT NULL,
+  subtopic TEXT,
+  content TEXT NOT NULL,
+  key_terms TEXT[],
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Sync queue (offline mode)
 CREATE TABLE IF NOT EXISTS sync_queue (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -321,6 +332,7 @@ CREATE INDEX IF NOT EXISTS idx_student_answers_test ON student_answers(daily_tes
 CREATE INDEX IF NOT EXISTS idx_student_badges_student ON student_badges(student_id);
 CREATE INDEX IF NOT EXISTS idx_homework_student ON homework(student_id);
 CREATE INDEX IF NOT EXISTS idx_holiday_work_student ON holiday_work(student_id);
+CREATE INDEX IF NOT EXISTS idx_study_content_subject ON study_content(subject_code);
 
 -- ============================================
 -- SEED DATA - Subjects
@@ -447,4 +459,5 @@ ALTER TABLE question_flags DISABLE ROW LEVEL SECURITY;
 ALTER TABLE question_versions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE subject_links DISABLE ROW LEVEL SECURITY;
 ALTER TABLE settings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE study_content DISABLE ROW LEVEL SECURITY;
 ALTER TABLE sync_queue DISABLE ROW LEVEL SECURITY;

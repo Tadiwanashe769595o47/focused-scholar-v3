@@ -85,26 +85,28 @@ export default function Tutor() {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto space-y-4 mb-4">
           {messages.map((msg, idx) => (
-            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
+            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
+              <div className={`max-w-[85%] lg:max-w-[70%] px-4 py-3 rounded-2xl shadow-sm ${
                 msg.role === 'user'
                   ? 'bg-primary text-white rounded-br-none'
-                  : 'bg-white shadow-sm rounded-bl-none'
+                  : 'bg-white text-gray-800 rounded-bl-none border border-gray-100'
               }`}>
                 {msg.image && (
-                  <img src={msg.image} alt="Uploaded" className="mb-2 rounded-lg max-w-full" />
+                  <img src={msg.image} alt="Uploaded" className="mb-2 rounded-lg max-w-full shadow-sm" />
                 )}
-                <p className="text-sm">{msg.content}</p>
+                <div className="text-sm leading-relaxed prose prose-sm max-w-none">
+                  {msg.content}
+                </div>
               </div>
             </div>
           ))}
           {loading && (
-            <div className="flex justify-start">
-              <div className="bg-white shadow-sm rounded-2xl rounded-bl-none px-4 py-3">
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="flex justify-start animate-pulse">
+              <div className="bg-white border border-gray-100 shadow-sm rounded-2xl rounded-bl-none px-4 py-3">
+                <div className="flex gap-1.5 h-4 items-center">
+                  <div className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
               </div>
             </div>
