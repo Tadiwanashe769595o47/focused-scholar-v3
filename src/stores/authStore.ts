@@ -62,7 +62,6 @@ export const useAuthStore = create<AuthState>()(
             body: JSON.stringify(credentials)
           });
         } catch (err) {
-          // Check if server is running
           try {
             const healthCheck = await fetch(getApiUrl('/health'));
             if (!healthCheck.ok) {
@@ -77,7 +76,6 @@ export const useAuthStore = create<AuthState>()(
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
 
-        // Check if student needs onboarding
         let needsOnboarding = true;
         if (credentials.type === 'student') {
           needsOnboarding = await getStudentNeedsOnboarding(data.token);
@@ -113,7 +111,6 @@ export const useAuthStore = create<AuthState>()(
         const response = await res.json();
         if (!res.ok) throw new Error(response.error);
 
-        // New students always need onboarding
         set({
           user: { ...response.user, needsOnboarding: true },
           token: response.token,
@@ -167,8 +164,17 @@ export const useAuthStore = create<AuthState>()(
           user: state.user ? { ...state.user, needsOnboarding: value } : null
         })),
 
-      logout: () => set({ user: null, token: null, isAuthenticated: false })
+      logout: () => {
+        set({ user: null, token: null, isAuthenticated: false });
+      }
     }),
-    { name: 'auth-storage' }
+    { 
+      name: 'auth-storage',
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        isAuthenticated: state.isAuthenticated
+      })
+    }
   )
 );

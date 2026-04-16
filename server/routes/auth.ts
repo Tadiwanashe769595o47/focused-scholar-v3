@@ -50,7 +50,7 @@ function validateLegacyStudentCredentials(name: string, pin: string): string | n
 }
 
 function createStudentToken(studentId: number, google = false): string {
-  return jwt.sign({ id: studentId, type: 'student', google }, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ id: studentId, type: 'student', google }, JWT_SECRET, { expiresIn: '30d' });
 }
 
 function buildStudentUser(student: any) {

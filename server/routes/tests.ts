@@ -140,29 +140,29 @@ router.post('/:testId/answer', requireAuth, async (req: Request, res: Response) 
     .update({ current_index: currentIndex })
     .eq('id', req.params.testId);
 
+  // Update student points IMMEDIATELY after each question (not just at completion)
+  const { data: student } = await supabase
+    .from('students')
+    .select('total_points')
+    .eq('id', req.user.id)
+    .single();
+
+  if (student) {
+    await supabase
+      .from('students')
+      .update({ total_points: (student.total_points || 0) + marks * 10 })
+      .eq('id', req.user.id);
+  }
+
   // Check if test is complete
   if (currentIndex >= questions.length) {
     await supabase
       .from('daily_tests')
       .update({ status: 'completed', completed_at: new Date().toISOString() })
       .eq('id', req.params.testId);
-
-    // Update student points
-    const { data: student } = await supabase
-      .from('students')
-      .select('total_points')
-      .eq('id', req.user.id)
-      .single();
-
-    if (student) {
-      await supabase
-        .from('students')
-        .update({ total_points: (student.total_points || 0) + marks * 10 })
-        .eq('id', req.user.id);
-    }
   }
 
-  res.json({ is_correct: isCorrect, marks, explanation: question.explanation_json });
+  res.json({ is_correct: isCorrect, marks, explanation: question.explanation_json, new_total_points: (student?.total_points || 0) + marks * 10 });
 });
 
 // Get test results

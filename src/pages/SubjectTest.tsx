@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import { useDashboardStore } from '../stores/dashboardStore';
 import { apiFetch } from '../lib/api';
 import { ChevronLeft, ChevronRight, Timer, CheckCircle, XCircle, AlertCircle, BookOpen, Sparkles } from 'lucide-react';
 import Confetti from 'react-confetti';
@@ -50,6 +51,8 @@ export default function SubjectTest() {
   const [score, setScore] = useState({ correct: 0, total: 0, marks: 0, maxMarks: 0 });
   const [simplifiedBullets, setSimplifiedBullets] = useState<string[] | null>(null);
   const [simplifying, setSimplifying] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [answeredCount, setAnsweredCount] = useState(0);
 
   const handleSimplify = async () => {
     const rawExplanation = currentQuestion?.explanation_json || currentQuestion?.explanation;
@@ -126,23 +129,67 @@ export default function SubjectTest() {
     fetchTest();
   }, [subjectCode, user, token]);
 
-  // Timer countdown
+  // Timer countdown - auto-submit when time runs out
   useEffect(() => {
-    if (timeLeft <= 0 || showExplanation || completed) return;
+    if (timeLeft <= 0) {
+      // Time's up - auto-submit with current answer (or null if none selected)
+      if (!showExplanation && !completed) {
+        if (selectedAnswer !== null) {
+          handleSubmitAnswer();
+        } else {
+          // No answer selected when time runs out - move to next or mark complete
+          if (currentIndex >= questions.length - 1) {
+            setCompleted(true);
+          } else {
+            setCurrentIndex(prev => prev + 1);
+            setSelectedAnswer(null);
+            setShowExplanation(false);
+            setIsCorrect(null);
+            setSimplifiedBullets(null);
+          }
+        }
+      }
+      return;
+    }
+    if (showExplanation || completed) return;
 
     const timer = setTimeout(() => {
       setTimeLeft(timeLeft - 1);
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [timeLeft, showExplanation, completed]);
+  }, [timeLeft, showExplanation, completed, selectedAnswer]);
 
   const currentQuestion = questions[currentIndex];
 
   const handleSubmitAnswer = useCallback(async () => {
-    if (!currentQuestion || !testId || !token || selectedAnswer === null) return;
+    // STRICT VALIDATION: Ensure student has actually picked an answer
+    if (!currentQuestion || !testId || !token || submitting) {
+      console.error('Submit blocked: missing required data', { 
+        hasQuestion: !!currentQuestion, 
+        hasTestId: !!testId, 
+        hasToken: !!token,
+        hasSelectedAnswer: selectedAnswer !== null,
+        submitting 
+      });
+      return;
+    }
 
+    // DOUBLE-CHECK: Student must have explicitly selected/picked an answer
+    if (selectedAnswer === null || selectedAnswer === undefined || selectedAnswer === '') {
+      console.error('Submit blocked: no answer selected by student');
+      return;
+    }
+
+    console.log('Submitting answer:', { 
+      questionId: currentQuestion.id, 
+      answer: selectedAnswer, 
+      timeSpent: (QUESTION_TIMERS[currentQuestion.question_type] || 60) - timeLeft 
+    });
+
+    setSubmitting(true);
     setAnswers(prev => ({ ...prev, [currentIndex]: selectedAnswer }));
+    setAnsweredCount(prev => prev + 1);
 
     // Submit answer to API
     try {
@@ -154,20 +201,47 @@ export default function SubjectTest() {
           time_spent: (QUESTION_TIMERS[currentQuestion.question_type] || 60) - timeLeft
         })
       });
-      setIsCorrect(result.is_correct);
-      setShowExplanation(true);
+
+      console.log('Answer result:', result);
+
+      // Update local points immediately from server response
+      if (result && typeof result.new_total_points === 'number') {
+        const authState = JSON.parse(localStorage.getItem('auth-storage') || '{}');
+        if (authState?.state?.user) {
+          authState.state.user.total_points = result.new_total_points;
+          localStorage.setItem('auth-storage', JSON.stringify(authState));
+        }
+      }
+
+      // ONLY show explanation after successful submission with valid result
+      if (result && typeof result.is_correct === 'boolean') {
+        setIsCorrect(result.is_correct);
+        setShowExplanation(true);
+      } else {
+        console.error('Invalid result from server:', result);
+      }
 
       setScore(prev => ({
         ...prev,
         correct: prev.correct + (result.is_correct ? 1 : 0),
         total: prev.total + 1,
-        marks: prev.marks + result.marks,
+        marks: prev.marks + (result.marks || 0),
         maxMarks: prev.maxMarks + (currentQuestion.marks || 1)
       }));
+
+      // Trigger dashboard refresh after each answer
+      setTimeout(() => {
+        const dashboardStore = useDashboardStore.getState();
+        if (dashboardStore.fetchDashboard) {
+          dashboardStore.fetchDashboard();
+        }
+      }, 500);
     } catch (err) {
       console.error('Error submitting answer:', err);
+    } finally {
+      setSubmitting(false);
     }
-  }, [currentQuestion, testId, token, timeLeft, selectedAnswer, currentIndex]);
+  }, [currentQuestion, testId, token, timeLeft, selectedAnswer, currentIndex, submitting]);
 
   const nextQuestion = () => {
     if (currentIndex >= questions.length - 1) {
@@ -430,9 +504,12 @@ export default function SubjectTest() {
           <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
             <div
               className="bg-primary h-full rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
+              style={{ width: `${(answeredCount / questions.length) * 100}%` }}
             />
           </div>
+          <p className="text-xs text-gray-500 mt-1 text-center">
+            {answeredCount} of {questions.length} questions answered
+          </p>
         </div>
       </div>
 
@@ -467,15 +544,21 @@ export default function SubjectTest() {
               <div className="flex justify-end mt-8">
                 <button
                   onClick={handleSubmitAnswer}
-                  disabled={selectedAnswer === null}
+                  disabled={selectedAnswer === null || submitting}
                   className={`group px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-all duration-300 ${
-                    selectedAnswer !== null
+                    selectedAnswer !== null && !submitting
                       ? 'bg-primary text-white shadow-md hover:shadow-lg hover:-translate-y-0.5'
                       : 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60'
                   }`}
                 >
-                  Submit Answer
-                  <CheckCircle className={`w-5 h-5 ${selectedAnswer !== null ? 'animate-bounce' : ''}`} />
+                  {submitting ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      Submit Answer
+                      <CheckCircle className="w-5 h-5" />
+                    </>
+                  )}
                 </button>
               </div>
             )}
