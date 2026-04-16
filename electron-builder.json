@@ -5,10 +5,6 @@
     "output": "release",
     "buildResources": "build"
   },
-  "protocols": {
-    "name": "focused-scholar-auth",
-    "schemes": ["focused-scholar"]
-  },
   "files": [
     "dist/**/*",
     "dist-electron/**/*",
@@ -24,10 +20,14 @@
     "dist-server/**/*",
     ".env"
   ],
+  "protocols": {
+    "name": "focused-scholar-auth",
+    "schemes": ["focused-scholar"]
+  },
   "publish": [
     {
       "provider": "github",
-      "owner": "Focused Scholar Team",
+      "owner": "Tadiwanashe769595o47",
       "repo": "focused-scholar-v3"
     }
   ],
@@ -52,7 +52,6 @@
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "shortcutName": "Focused Scholar V3",
-    "license": "LICENSE",
     "deleteAppDataOnUninstall": true,
     "installerIcon": "build/icon.ico",
     "uninstallerIcon": "build/icon.ico",

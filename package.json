@@ -84,8 +84,13 @@
     "productName": "Focused Scholar",
     "copyright": "Copyright © 2026 Focused Scholar Team",
     "directories": {
-      "output": "dist-electron"
+      "output": "release"
     },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "dist-server/**/*"
+    ],
     "publish": [
       {
         "provider": "github",
@@ -95,7 +100,7 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "build/icon.png"
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,

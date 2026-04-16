@@ -9,11 +9,24 @@ const __dirname = path.dirname(__filename);
 const isDev = !app.isPackaged;
 
 // Configure autoUpdater
-autoUpdater.autoDownload = false;
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
 autoUpdater.logger = console;
 
 autoUpdater.on('checking-for-update', () => console.log('Checking for update...'));
-autoUpdater.on('update-available', (info) => console.log('Update available:', info.version));
+autoUpdater.on('update-available', (info) => {
+  console.log('Update available:', info.version);
+  dialog.showMessageBox(mainWindow!, {
+    type: 'info',
+    buttons: ['Download in Background'],
+    defaultId: 0,
+    title: 'Update Available',
+    message: `A new version (${info.version}) of Focused Scholar is available.`,
+    detail: 'It will download automatically in the background.'
+  }).then(() => {
+    autoUpdater.downloadUpdate();
+  });
+});
 autoUpdater.on('update-not-available', () => console.log('No update available.'));
 autoUpdater.on('error', (err) => console.error('Error in auto-updater:', err));
 autoUpdater.on('download-progress', (progressObj) => {
