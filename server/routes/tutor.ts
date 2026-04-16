@@ -139,7 +139,11 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
     }
   } catch (error: any) {
     console.error('Tutor error:', error.message);
-    res.status(500).json({ error: 'AI tutor is temporarily unavailable' });
+    
+    // Return a friendly error message instead of 500
+    res.status(200).json({ 
+      response: "I'm having trouble connecting to my AI brain right now. But I can still help! Try:\n\n1. Asking me about a specific topic\n2. Reviewing your flashcards\n3. Taking a practice test\n\nThe AI service should be back soon!" 
+    });
   }
 });
 

@@ -12,6 +12,7 @@ import teacherRoutes from './routes/teacher.js';
 import analyticsRoutes from './routes/analytics.js';
 import tutorRoutes from './routes/tutor.js';
 import importRoutes from './routes/import.js';
+import notificationRoutes from './routes/notifications.js';
 import { scheduleTests } from './services/scheduler.js';
 import { initializeDatabase } from './services/init.js';
 
@@ -39,6 +40,7 @@ app.use('/api/teacher', teacherRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/tutor', tutorRoutes);
 app.use('/api/import', importRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

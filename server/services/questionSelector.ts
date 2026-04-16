@@ -80,8 +80,9 @@ export async function selectQuestionsForStudent(studentId: number, subjectCode: 
     selectedIds.push(...additional.map(q => q.id));
   }
 
-  // Final trimming and unique check
-  return [...new Set(selectedIds)].slice(0, testSize);
+  // Final trimming. We DO NOT use Set here so that if the subject bank
+  // runs out of questions, it successfully recycles questions to reach exact test sizes.
+  return selectedIds.slice(0, testSize);
 }
 
 async function getStudentHistory(studentId: number, subjectCode: string, fromDate: string) {

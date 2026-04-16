@@ -6,8 +6,10 @@ import {
   Calculator, Leaf, Beaker, Zap, Code, Globe, DollarSign,
   TrendingUp, BookOpen, Feather, Settings, BookMarked,
   Trophy, Flame, ClipboardList, Brain, CalendarDays,
+  Bell, BellDot,
   LogOut, ArrowRight, Sparkles, Target, Play, RotateCcw, CheckCircle
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const subjectIcons: Record<string, React.ReactNode> = {
   calculator: <Calculator className="w-6 h-6" />,
@@ -25,7 +27,12 @@ const subjectIcons: Record<string, React.ReactNode> = {
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
-  const { subjects, streak, totalPoints, fetchDashboard } = useDashboardStore();
+  const state = useDashboardStore();
+  const subjects = state.subjects || [];
+  const streak = state.streak || 0;
+  const totalPoints = state.totalPoints || 0;
+  const unreadCount = state.unreadNotifications || 0;
+  const fetchDashboard = state.fetchDashboard;
   
   const allCompleted = subjects.length > 0 && subjects.every(s => (s.todayStatus || 'not_started') === 'completed');
 
@@ -61,6 +68,20 @@ export default function Dashboard() {
               <Trophy className="w-5 h-5 text-yellow-500" />
               <span className="font-semibold">{totalPoints}</span>
             </div>
+
+            <button
+              onClick={() => navigate('/notifications')}
+              className="relative p-2 text-gray-500 hover:text-primary rounded-lg hover:bg-gray-100/50 transition-all cursor-pointer"
+            >
+              {unreadCount > 0 ? (
+                <>
+                  <BellDot className="w-6 h-6 text-primary animate-bounce-slow" />
+                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full" />
+                </>
+              ) : (
+                <Bell className="w-6 h-6" />
+              )}
+            </button>
             <button
               onClick={() => { logout(); navigate('/login'); }}
               className="p-2 text-gray-500 hover:text-red-500 rounded-lg hover:bg-gray-100/50 transition-all"
@@ -75,7 +96,7 @@ export default function Dashboard() {
       <div className="p-6">
         <div className="max-w-6xl mx-auto">
           {/* Quick Actions Row */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             <button
               onClick={() => navigate('/homework')}
               className="glass-card-border group"
@@ -86,7 +107,7 @@ export default function Dashboard() {
                 </div>
                 <div className="text-left">
                   <p className="font-semibold text-gray-900">Homework</p>
-                  <p className="text-xs text-gray-500">View assignments</p>
+                  <p className="text-xs text-gray-500">Assignments</p>
                 </div>
               </div>
             </button>
@@ -99,8 +120,22 @@ export default function Dashboard() {
                   <CalendarDays className="w-6 h-6 text-green-600" />
                 </div>
                 <div className="text-left">
-                  <p className="font-semibold text-gray-900">Holiday Work</p>
-                  <p className="text-xs text-gray-500">Practice sets</p>
+                  <p className="font-semibold text-gray-900">Holiday</p>
+                  <p className="text-xs text-gray-500">Practice</p>
+                </div>
+              </div>
+            </button>
+            <button
+              onClick={() => navigate('/study')}
+              className="glass-card-border group"
+            >
+              <div className="glass-card flex items-center gap-3 p-4">
+                <div className="icon-circle-lg bg-red-100/50">
+                  <BookOpen className="w-6 h-6 text-red-600" />
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-gray-900">Study</p>
+                  <p className="text-xs text-gray-500">Syllabus notes</p>
                 </div>
               </div>
             </button>
@@ -114,7 +149,7 @@ export default function Dashboard() {
                 </div>
                 <div className="text-left">
                   <p className="font-semibold text-gray-900">Flashcards</p>
-                  <p className="text-xs text-gray-500">Review topics</p>
+                  <p className="text-xs text-gray-500">Review</p>
                 </div>
               </div>
             </button>
@@ -128,7 +163,7 @@ export default function Dashboard() {
                 </div>
                 <div className="text-left">
                   <p className="font-semibold text-gray-900">AI Tutor</p>
-                  <p className="text-xs text-gray-500">Get help</p>
+                  <p className="text-xs text-gray-500">Ask help</p>
                 </div>
               </div>
             </button>
@@ -156,72 +191,104 @@ export default function Dashboard() {
           {/* Subjects Grid - All visible */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Your Subjects</h2>
-              {allCompleted && (
-                <button 
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Today&apos;s Training</h2>
+                <p className="text-sm text-gray-500">Complete all subjects to unlock your daily report</p>
+              </div>
+              {allCompleted ? (
+                <motion.button 
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
                   onClick={() => navigate('/reports')}
-                  className="text-sm font-bold text-primary hover:underline flex items-center gap-2 animate-bounce-subtle"
+                  className="px-6 py-2.5 bg-gradient-to-r from-primary to-accent text-white rounded-full text-sm font-bold shadow-lg shadow-primary/25 hover:shadow-xl transition-all flex items-center gap-2 group"
                 >
-                  View Final Reports →
-                </button>
+                  <Trophy className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                  View Final Reports
+                  <ArrowRight className="w-4 h-4" />
+                </motion.button>
+              ) : (
+                <div className="flex items-center gap-2 text-sm font-medium text-gray-400 bg-gray-100/50 px-4 py-2 rounded-full">
+                  <Target className="w-4 h-4" />
+                  {subjects.filter(s => s.todayStatus === 'completed').length} / {subjects.length} Completed
+                </div>
               )}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {subjects.map((subject) => {
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+              {subjects.map((subject, idx) => {
                 const status = subject.todayStatus || 'not_started';
+                const isCompleted = status === 'completed';
+                const isInProgress = status === 'in_progress';
+                
                 const buttonConfig = {
-                  not_started: { label: 'Start', icon: <Play className="w-4 h-4" />, bg: 'from-primary to-accent' },
-                  in_progress: { label: 'Continue', icon: <RotateCcw className="w-4 h-4" />, bg: 'from-yellow-500 to-orange-500' },
-                  completed: { label: 'Finished', icon: <CheckCircle className="w-4 h-4" />, bg: 'from-green-500 to-emerald-500' }
+                  not_started: { label: 'Start Session', icon: <Play className="w-4 h-4" />, bg: 'from-primary/10 to-primary/20 text-primary border-primary/20' },
+                  in_progress: { label: 'Resume', icon: <RotateCcw className="w-4 h-4" />, bg: 'from-yellow-400 to-orange-500 text-white border-transparent shadow-lg shadow-orange-200' },
+                  completed: { label: 'Completed', icon: <CheckCircle className="w-4 h-4" />, bg: 'from-green-500 to-emerald-600 text-white border-transparent' }
                 }[status];
 
                 return (
-                  <button
+                  <motion.button
                     key={subject.code}
-                    onClick={() => status !== 'completed' && navigate(`/test/${subject.code}`)}
-                    disabled={status === 'completed'}
-                    className={`glass-card-border group ${status === 'completed' ? 'opacity-70 grayscale-[0.5] cursor-not-allowed' : ''}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    onClick={() => !isCompleted && navigate(`/test/${subject.code}`)}
+                    className={`glass-card-border group relative flex flex-col h-full ${isCompleted ? 'cursor-default transition-none' : 'hover:scale-[1.02] active:scale-[0.98]'}`}
                   >
-                    <div className="glass-card p-5 text-left relative overflow-hidden">
-                      {status === 'completed' && (
-                        <div className="absolute top-2 right-2">
-                          <CheckCircle className="w-5 h-5 text-green-500" />
-                        </div>
-                      )}
-                      <div 
-                        className="icon-circle mb-3"
-                        style={{ backgroundColor: `${subject.color}20` }}
-                      >
-                        <span style={{ color: subject.color }}>
-                          {subjectIcons[subject.icon] || <BookOpen className="w-6 h-6" />}
-                        </span>
+                    <div className="glass-card p-5 flex flex-col h-full text-left relative overflow-hidden">
+                      {/* Status Tag */}
+                      <div className="absolute top-4 right-4">
+                        {isCompleted ? (
+                          <div className="bg-green-100 text-green-600 p-1 rounded-full">
+                            <CheckCircle className="w-4 h-4" />
+                          </div>
+                        ) : isInProgress ? (
+                          <div className="bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                            In Progress
+                          </div>
+                        ) : null}
                       </div>
-                      <p className="font-semibold text-gray-900">{subject.name}</p>
-                      <p className="text-sm text-gray-500">{subject.code}</p>
-                      {subject.progress > 0 && (
-                        <div className="mt-3">
-                          <div className="flex justify-between text-xs text-gray-500 mb-1">
-                            <span>Progress</span>
-                            <span>{subject.progress}%</span>
+
+                      <div 
+                        className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110 duration-300"
+                        style={{ backgroundColor: `${subject.color}15`, color: subject.color }}
+                      >
+                        {subjectIcons[subject.icon] || <BookOpen className="w-6 h-6" />}
+                      </div>
+
+                      <div className="flex-1">
+                        <h3 className="font-bold text-gray-900 group-hover:text-primary transition-colors">{subject.name}</h3>
+                        <p className="text-xs text-gray-400 font-medium mb-4">{subject.code}</p>
+                        
+                        {subject.progress > 0 && (
+                          <div className="mb-4">
+                            <div className="flex justify-between text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                              <span>Today&apos;s Progress</span>
+                              <span>{subject.progress}%</span>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden border border-gray-100">
+                              <motion.div 
+                                initial={{ width: 0 }}
+                                animate={{ width: `${subject.progress}%` }}
+                                className="h-full rounded-full"
+                                style={{ backgroundColor: subject.color }}
+                              />
+                            </div>
                           </div>
-                          <div className="h-1.5 rounded-full bg-gray-200/50 overflow-hidden">
-                            <div 
-                              className="h-full rounded-full transition-all"
-                              style={{ width: `${subject.progress}%`, background: `linear-gradient(90deg, ${subject.color}, ${subject.color}99)` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                      <div className={`mt-4 py-2 px-3 rounded-lg bg-gradient-to-r ${status === 'completed' ? 'from-gray-400 to-gray-500' : buttonConfig.bg} text-white text-sm font-medium flex items-center justify-center gap-2 shadow-lg`}>
-                        {status === 'completed' ? <CheckCircle className="w-4 h-4" /> : buttonConfig.icon}
-                        {status === 'completed' ? 'Completed' : buttonConfig.label}
+                        )}
+                      </div>
+
+                      <div className={`mt-auto py-2.5 px-4 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition-all ${buttonConfig.bg}`}>
+                        {buttonConfig.icon}
+                        {buttonConfig.label}
                       </div>
                     </div>
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
           </div>
+
 
           {/* Bottom Row - History & Settings */}
           <div className="grid grid-cols-2 gap-4">

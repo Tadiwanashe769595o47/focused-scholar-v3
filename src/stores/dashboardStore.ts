@@ -18,6 +18,7 @@ interface DashboardState {
   streak: number;
   totalPoints: number;
   todayScore: { answered: number; correct: number; percentage: number };
+  unreadNotifications: number;
   lastFetch: number;
   fetchDashboard: () => Promise<void>;
 }
@@ -40,6 +41,7 @@ export const useDashboardStore = create<DashboardState>()(
       streak: 0,
       totalPoints: 0,
       todayScore: { answered: 0, correct: 0, percentage: 0 },
+      unreadNotifications: 0,
       lastFetch: 0,
 
       fetchDashboard: async () => {
@@ -51,12 +53,28 @@ export const useDashboardStore = create<DashboardState>()(
           if (!token || !user) return;
 
           const today = new Date().toISOString().split('T')[0];
-          const [statsRes, progressRes] = await Promise.all([
-            apiFetch(`/students/${user.id}/stats`),
-            apiFetch(`/students/${user.id}/progress`)
-          ]);
+          
+          let unreadCount = 0;
+          let statsRes = null;
+          let progressRes = null;
+          
+          try {
+            [statsRes, progressRes] = await Promise.all([
+              apiFetch(`/students/${user.id}/stats`),
+              apiFetch(`/students/${user.id}/progress`)
+            ]);
+            
+            try {
+              const notificationsRes = await apiFetch('/notifications');
+              unreadCount = notificationsRes?.filter ? notificationsRes.filter((n: any) => !n.read_at).length : 0;
+            } catch (notifErr) {
+              console.log('Notifications not available');
+            }
+          } catch (err) {
+            console.error('Dashboard fetch error:', err);
+          }
 
-          const updatedSubjects = progressRes.subjects?.map((sub: any) => ({
+          const updatedSubjects = progressRes?.subjects?.map((sub: any) => ({
             code: sub.code,
             name: sub.name,
             color: sub.color || '#6366F1',
@@ -87,8 +105,9 @@ export const useDashboardStore = create<DashboardState>()(
 
           set({ 
             subjects: updatedSubjects, 
-            streak: statsRes.streak || 0, 
-            totalPoints: statsRes.points || 0,
+            streak: statsRes?.streak || 0, 
+            totalPoints: statsRes?.points || 0,
+            unreadNotifications: unreadCount,
             lastFetch: Date.now()
           });
         } catch (err) {
@@ -103,6 +122,7 @@ export const useDashboardStore = create<DashboardState>()(
         streak: state.streak,
         totalPoints: state.totalPoints,
         todayScore: state.todayScore,
+        unreadNotifications: state.unreadNotifications,
         lastFetch: state.lastFetch
       })
     }

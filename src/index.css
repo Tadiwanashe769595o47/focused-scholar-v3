@@ -38,6 +38,7 @@ body {
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
+  font-size: 0.875rem; /* Reduced from default 1rem */
 }
 
 body::before {
@@ -115,8 +116,29 @@ body::after {
     color: #6B7280;
   }
 
-  .border {
-    border-color: #E5E7EB;
+  .text-tiny {
+    font-size: 0.65rem;
+    line-height: 1rem;
+  }
+
+  .text-xs {
+    font-size: 0.7rem;
+    line-height: 1rem;
+  }
+
+  .text-sm {
+    font-size: 0.8rem;
+    line-height: 1.25rem;
+  }
+
+  .text-base {
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+  }
+
+  .text-lg {
+    font-size: 1rem;
+    line-height: 1.75rem;
   }
 }
 
@@ -138,8 +160,8 @@ body::after {
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 1rem;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+  border-radius: 0.75rem; /* Reduced from 1rem */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04); /* Reduced shadow */
   transition: all 0.3s ease-out;
   overflow: hidden;
 }
@@ -389,8 +411,8 @@ body::after {
 /* Stat Card Base */
 .stat-card {
   position: relative;
-  padding: 1.25rem;
-  border-radius: 1rem;
+  padding: 1rem; /* Reduced from 1.25rem */
+  border-radius: 0.75rem; /* Reduced from 1rem */
   overflow: hidden;
   transition: all 0.3s ease-out;
 }

@@ -154,12 +154,18 @@ router.post('/student/login', loginLimiter, async (req: Request, res: Response) 
       const emailError = validateEmail(normalizedEmail);
       if (emailError) return res.status(400).json({ error: emailError });
 
+      console.log('Login attempt for:', normalizedEmail);
+
       const student = await findStudentByEmail(normalizedEmail);
       if (!student) return res.status(401).json({ error: 'No student account found for that email' });
+
+      console.log('Found student:', student.id, student.name);
 
       if (!student.pin_hash || !bcrypt.compareSync(password, student.pin_hash)) {
         return res.status(401).json({ error: 'Invalid email or password' });
       }
+
+      console.log('Password verified, creating token');
 
       await touchStudent(student.id);
       const token = createStudentToken(student.id);
@@ -194,15 +200,22 @@ router.post('/student/login', loginLimiter, async (req: Request, res: Response) 
 
 // Student register
 router.post('/student/register', loginLimiter, async (req: Request, res: Response) => {
-  const { name, email, password, parent_email } = req.body;
+  let { name, email, password, parent_email } = req.body;
+  console.log('Register request:', { name, email, password_len: password?.length, parent_email });
+  
+  // Default name if not provided
+  if (!name || name.trim().length < 2) {
+    name = email.split('@')[0] || 'Student';
+  }
+  
   const normalizedEmail = normalizeEmail(email);
   const normalizedParentEmail = normalizeEmail(parent_email);
 
   const nameError = validateStudentName(name);
-  if (nameError) return res.status(400).json({ error: nameError });
+  if (nameError) return res.status(400).json({ error: 'Name is required: ' + nameError });
 
   const emailError = validateEmail(normalizedEmail);
-  if (emailError) return res.status(400).json({ error: emailError });
+  if (emailError) return res.status(400).json({ error: 'Email error: ' + emailError });
 
   if (!password || password.length < 6) {
     return res.status(400).json({ error: 'Password must be at least 6 characters' });
@@ -217,6 +230,8 @@ router.post('/student/register', loginLimiter, async (req: Request, res: Respons
     const existingStudent = await findStudentByEmail(normalizedEmail!);
     if (existingStudent) return res.status(400).json({ error: 'Email already registered' });
 
+    console.log('Creating student record:', { name, email: normalizedEmail, parent_email: normalizedParentEmail });
+
     const { data: result, error } = await createStudentRecord({
       name,
       email: normalizedEmail!,
@@ -224,16 +239,21 @@ router.post('/student/register', loginLimiter, async (req: Request, res: Respons
       parent_email: normalizedParentEmail
     });
 
-    if (error || !result) {
-      console.error('Student register error:', error);
-      return res.status(500).json({ error: error?.message || 'Failed to create account' });
+    if (error) {
+      console.error('Supabase insert error:', JSON.stringify(error));
+      return res.status(500).json({ error: error.message || 'Failed to create account' });
+    }
+
+    if (!result) {
+      console.error('No result returned from insert');
+      return res.status(500).json({ error: 'Failed to create account - no data returned' });
     }
 
     const token = createStudentToken(result.id);
     return res.json({ token, user: buildStudentUser(result) });
-  } catch (error) {
-    console.error('Student register error:', error);
-    return res.status(500).json({ error: 'Failed to create account' });
+  } catch (error: any) {
+    console.error('Student register exception:', error.message || error);
+    return res.status(500).json({ error: error.message || 'Failed to create account' });
   }
 });
 
@@ -399,9 +419,21 @@ router.get('/google/callback', async (req: Request, res: Response) => {
     await touchStudent(student.id);
 
     const jwtToken = createStudentToken(student.id, true);
+    
+    // In Electron app, ALWAYS use deep link protocol (not URL redirect)
+    // The app is Electron if running from bundled mode
+    const isElectronApp = process.env.FRONTEND_URL?.startsWith('file://');
+    if (isElectronApp || process.env.NODE_ENV === 'production') {
+      return res.redirect(`focused-scholar://auth?token=${encodeURIComponent(jwtToken)}`);
+    }
+
     res.redirect(`${frontendUrl}/auth/callback?token=${encodeURIComponent(jwtToken)}`);
   } catch (error) {
     console.error('Google auth error:', error);
+    const isElectronApp = process.env.FRONTEND_URL?.startsWith('file://');
+    if (isElectronApp || process.env.NODE_ENV === 'production') {
+      return res.redirect(`focused-scholar://auth?error=${encodeURIComponent('Google authentication failed')}`);
+    }
     res.redirect(`${frontendUrl}/auth/callback?error=${encodeURIComponent('Google authentication failed')}`);
   }
 });

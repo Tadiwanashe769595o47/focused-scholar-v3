@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { getApiUrl } from '../lib/api';
 
 export interface User {
   id: number;
@@ -26,11 +27,9 @@ interface AuthState {
   logout: () => void;
 }
 
-const API_URL = (import.meta as any).env?.DEV ? '/api' : (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000/api';
-
 async function getStudentNeedsOnboarding(token: string): Promise<boolean> {
   try {
-    const profileRes = await fetch(`${API_URL}/students/me/profile`, {
+    const profileRes = await fetch(getApiUrl('/students/me/profile'), {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (profileRes.ok) {
@@ -55,11 +54,25 @@ export const useAuthStore = create<AuthState>()(
           : credentials.type === 'holiday' ? '/auth/holiday/login'
           : '/auth/parent/login';
 
-        const res = await fetch(`${API_URL}${endpoint}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(credentials)
-        });
+        let res;
+        try {
+          res = await fetch(getApiUrl(endpoint), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(credentials)
+          });
+        } catch (err) {
+          // Check if server is running
+          try {
+            const healthCheck = await fetch(getApiUrl('/health'));
+            if (!healthCheck.ok) {
+              throw new Error('Server is not responding correctly. Please restart the app.');
+            }
+          } catch {
+            throw new Error('Cannot connect to server. Please make sure the app is fully started and try again.');
+          }
+          throw err;
+        }
 
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
@@ -78,11 +91,24 @@ export const useAuthStore = create<AuthState>()(
       },
 
       register: async (data) => {
-        const res = await fetch(`${API_URL}/auth/student/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        });
+        let res;
+        try {
+          res = await fetch(getApiUrl('/auth/student/register'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+        } catch (err) {
+          try {
+            const healthCheck = await fetch(getApiUrl('/health'));
+            if (!healthCheck.ok) {
+              throw new Error('Server is not responding correctly. Please restart the app.');
+            }
+          } catch {
+            throw new Error('Cannot connect to server. Please make sure the app is fully started and try again.');
+          }
+          throw err;
+        }
 
         const response = await res.json();
         if (!res.ok) throw new Error(response.error);
@@ -96,11 +122,11 @@ export const useAuthStore = create<AuthState>()(
       },
 
       loginWithGoogle: async () => {
-        window.location.href = `${API_URL}/auth/google`;
+        window.location.href = getApiUrl('/auth/google');
       },
 
       finishGoogleAuth: async (token) => {
-        const meRes = await fetch(`${API_URL}/students/me`, {
+        const meRes = await fetch(getApiUrl('/students/me'), {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -123,7 +149,7 @@ export const useAuthStore = create<AuthState>()(
         if (!token) return true;
 
         try {
-          const res = await fetch(`${API_URL}/students/me/profile`, {
+          const res = await fetch(getApiUrl('/students/me/profile'), {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (res.ok) {

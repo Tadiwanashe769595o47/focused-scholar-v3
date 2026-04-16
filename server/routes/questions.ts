@@ -146,4 +146,42 @@ router.get('/flashcards/:subject', requireAuth, async (req: Request, res: Respon
   res.json(flashcards);
 });
 
+// Get study content for subject
+router.get('/study/:subject', requireAuth, async (req: Request, res: Response) => {
+  const { topic } = req.query;
+  let query = supabase
+    .from('study_content')
+    .select('*')
+    .eq('subject_code', req.params.subject)
+    .order('topic');
+
+  if (topic) {
+    query = query.eq('topic', topic);
+  }
+
+  const { data: content, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(content);
+});
+
+// Import flashcards (bulk)
+router.post('/flashcards/import', requireTeacher, async (req: Request, res: Response) => {
+  const { flashcards } = req.body;
+  if (!flashcards || !Array.isArray(flashcards)) return res.status(400).json({ error: 'Flashcards array required' });
+
+  const { data, error } = await supabase.from('flashcards').insert(flashcards);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true, count: flashcards.length });
+});
+
+// Import study content (bulk)
+router.post('/study/import', requireTeacher, async (req: Request, res: Response) => {
+  const { content } = req.body;
+  if (!content || !Array.isArray(content)) return res.status(400).json({ error: 'Study content array required' });
+
+  const { data, error } = await supabase.from('study_content').insert(content);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true, count: content.length });
+});
+
 export default router;

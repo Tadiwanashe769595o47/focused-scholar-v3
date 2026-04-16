@@ -1,8 +1,13 @@
 /// <reference types="vite/client" />
 
+const isElectron = navigator.userAgent.toLowerCase().indexOf(' electron/') > -1;
 const API_URL = (import.meta as any).env?.DEV ? '/api' : 'http://localhost:3000/api';
 
 export function getApiUrl(path: string): string {
+  // In Electron app (production or source with bundles), always use localhost server
+  if (isElectron) {
+    return `http://localhost:3000/api${path}`;
+  }
   return `${API_URL}${path}`;
 }
 
@@ -23,7 +28,7 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     ...(options.headers || {})
   };
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(getApiUrl(path), {
     ...options,
     headers
   });
@@ -47,7 +52,7 @@ export async function apiUpload(path: string, formData: FormData) {
     } catch {}
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(getApiUrl(path), {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {})

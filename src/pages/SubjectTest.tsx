@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 import { apiFetch } from '../lib/api';
 import { ChevronLeft, ChevronRight, Timer, CheckCircle, XCircle, AlertCircle, BookOpen, Sparkles } from 'lucide-react';
 import Confetti from 'react-confetti';
+import SubjectAIChat from '../components/SubjectAIChat';
 const SUBJECT_NAMES: Record<string, string> = {
   '0580': 'Mathematics',
   '0610': 'Biology',
@@ -79,7 +80,7 @@ export default function SubjectTest() {
       const today = new Date().toISOString().split('T')[0];
       const cacheKey = `test_${user.id}_${today}_${subjectCode}`;
       
-      // Try local storage first
+      // Try local storage first for instant UI loading
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         try {
@@ -87,16 +88,17 @@ export default function SubjectTest() {
           setTestId(test.id);
           if (test.questions_data && test.questions_data.length > 0) {
             setQuestions(test.questions_data);
-            setTimeLeft(QUESTION_TIMERS[test.questions_data[0]?.question_type] || 60);
+            if (test.current_index && test.current_index < test.questions_data.length) {
+              setCurrentIndex(test.current_index);
+            }
+            setTimeLeft(QUESTION_TIMERS[test.questions_data[test.current_index || 0]?.question_type] || 60);
           }
-          setLoading(false);
-          // Return early, background fetch can update cache for next time
-          return;
         } catch (e) {
           console.error("Cache parse error", e);
         }
       }
 
+      // Always fetch fresh data to get the accurate current_index
       try {
         const tests = await apiFetch(`/tests/${user.id}/${today}?subject=${subjectCode}`);
 
@@ -107,7 +109,11 @@ export default function SubjectTest() {
 
           if (test.questions_data && test.questions_data.length > 0) {
             setQuestions(test.questions_data);
-            setTimeLeft(QUESTION_TIMERS[test.questions_data[0]?.question_type] || 60);
+            // Resume from existing index if available
+            if (test.current_index && test.current_index < test.questions_data.length) {
+              setCurrentIndex(test.current_index);
+            }
+            setTimeLeft(QUESTION_TIMERS[test.questions_data[test.current_index || 0]?.question_type] || 60);
           }
         }
       } catch (err) {
@@ -431,169 +437,185 @@ export default function SubjectTest() {
       </div>
 
       {/* Question Content */}
-      <div className="max-w-4xl mx-auto p-6 pb-32">
-        <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 p-8 md:p-12 mb-6 border border-gray-100">
-          {/* Question Text */}
-          <div className="mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 leading-tight">
-              {currentQuestion?.question_text}
-            </h2>
-          </div>
-
-          {currentQuestion?.diagram_url && (
-            <div className="mb-10 p-2 bg-gray-50 rounded-2xl border-2 border-gray-100 overflow-hidden group">
-              <img 
-                src={currentQuestion.diagram_url} 
-                alt="Question diagram" 
-                className="max-w-full mx-auto rounded-xl group-hover:scale-[1.02] transition-transform duration-500" 
-              />
+      <div className="max-w-6xl mx-auto p-4 md:p-6 pb-32">
+        <div className="grid md:grid-cols-2 gap-6 md:gap-8 min-h-[500px]">
+          {/* Left Panel: Question Text & Input */}
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 md:p-8 flex flex-col">
+            <div className="mb-6">
+              <h2 className="text-lg md:text-xl font-bold text-slate-800 leading-relaxed inline">
+                {currentQuestion?.question_text}
+              </h2>
+              <SubjectAIChat questionText={currentQuestion?.question_text || ''} />
             </div>
-          )}
 
-          {/* Answer Options */}
-          <div className="mb-10">
-            {renderQuestion()}
-          </div>
+            {currentQuestion?.diagram_url && (
+              <div className="mb-8 p-3 bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+                <img 
+                  src={currentQuestion.diagram_url} 
+                  alt="Question diagram" 
+                  className="max-w-full mx-auto rounded-lg" 
+                />
+              </div>
+            )}
 
-          {/* Submit Button (Only shows before answering for M/C or fallback) */}
-          {!showExplanation && currentQuestion?.question_type?.startsWith('multiple_choice') && (
-            <div className="flex justify-end">
-              <button
-                onClick={handleSubmitAnswer}
-                disabled={selectedAnswer === null}
-                className={`group px-8 py-4 rounded-2xl font-bold text-lg flex items-center gap-3 transition-all duration-300 ${
-                  selectedAnswer !== null
-                    ? 'bg-primary text-white shadow-xl shadow-primary/30 hover:shadow-2xl hover:shadow-primary/40 hover:-translate-y-1'
-                    : 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
-                }`}
-              >
-                Submit Answer
-                <CheckCircle className={`w-6 h-6 ${selectedAnswer !== null ? 'animate-bounce' : ''}`} />
-              </button>
+            <div className="mb-auto w-full">
+              {renderQuestion()}
             </div>
-          )}
 
-          {/* Feedback & Explanation */}
-          {showExplanation && (
-            <div className={`mt-10 rounded-2xl animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden border-2 ${
-              isCorrect ? 'border-green-200' : 'border-red-200'
-            }`}>
-
-              {/* Top bar: result + NEXT BUTTON */}
-              <div className={`flex items-center justify-between gap-4 p-5 ${
-                isCorrect ? 'bg-green-500' : 'bg-red-500'
-              }`}>
-                <div className="flex items-center gap-3">
-                  {isCorrect ? (
-                    <CheckCircle className="w-7 h-7 text-white" />
-                  ) : (
-                    <XCircle className="w-7 h-7 text-white" />
-                  )}
-                  <div>
-                    <h3 className="text-xl font-bold text-white">
-                      {isCorrect ? 'Correct! 🎉' : 'Not quite!'}
-                    </h3>
-                    <p className="text-sm text-white/80">
-                      {isCorrect ? 'Great job on this one!' : "Don't worry — let's learn from it."}
-                    </p>
-                  </div>
-                </div>
+            {/* Submit Button for Multiple Choice */}
+            {!showExplanation && currentQuestion?.question_type?.startsWith('multiple_choice') && (
+              <div className="flex justify-end mt-8">
                 <button
-                  onClick={nextQuestion}
-                  className="shrink-0 px-6 py-3 rounded-xl font-bold text-base flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white border border-white/40 transition-all duration-200"
+                  onClick={handleSubmitAnswer}
+                  disabled={selectedAnswer === null}
+                  className={`group px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-all duration-300 ${
+                    selectedAnswer !== null
+                      ? 'bg-primary text-white shadow-md hover:shadow-lg hover:-translate-y-0.5'
+                      : 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60'
+                  }`}
                 >
-                  {currentIndex >= questions.length - 1 ? 'Finish' : 'Next'}
-                  <ChevronRight className="w-5 h-5" />
+                  Submit Answer
+                  <CheckCircle className={`w-5 h-5 ${selectedAnswer !== null ? 'animate-bounce' : ''}`} />
                 </button>
               </div>
+            )}
+          </div>
 
-              {/* Explanation body */}
-              <div className={`p-6 md:p-8 ${ isCorrect ? 'bg-green-50' : 'bg-red-50' }`}>
-                {(currentQuestion?.explanation_json || currentQuestion?.explanation) && (
-                  <div className="space-y-4 mb-6">
-                    {typeof (currentQuestion.explanation_json || currentQuestion.explanation) === 'string' ? (
-                      <div className="bg-white/70 p-4 rounded-xl">
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Explanation</p>
-                        {(currentQuestion.explanation_json || currentQuestion.explanation).split(/(?:\d\.|Step|First|Second|Third|Next|Then|Finally)/i).filter(Boolean).map((part: string, idx: number) => (
-                          part.trim() && (
-                            <div key={idx} className="flex gap-3 mb-2 animate-in fade-in slide-in-from-left-2" style={{ animationDelay: `${idx * 100}ms` }}>
-                              <div className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                                {idx + 1}
-                              </div>
-                              <p className="text-gray-700 text-sm leading-relaxed">{part.trim()}</p>
-                            </div>
-                          )
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="grid md:grid-cols-2 gap-4">
-                        {(currentQuestion.explanation_json || currentQuestion.explanation).why_correct && (
-                          <div className="bg-white/70 p-4 rounded-xl">
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Why it&apos;s correct</p>
-                            <p className="text-gray-700 text-sm">{(currentQuestion.explanation_json || currentQuestion.explanation).why_correct}</p>
-                          </div>
-                        )}
-                        {(currentQuestion.explanation_json || currentQuestion.explanation).key_understanding && (
-                          <div className="bg-white/70 p-4 rounded-xl">
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Key Concept</p>
-                            <p className="text-gray-700 text-sm">{(currentQuestion.explanation_json || currentQuestion.explanation).key_understanding}</p>
-                          </div>
-                        )}
-                        {(currentQuestion.explanation_json || currentQuestion.explanation).steps && Array.isArray((currentQuestion.explanation_json || currentQuestion.explanation).steps) && (
-                          <div className="md:col-span-2 bg-white/70 p-4 rounded-xl">
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Steps to solve</p>
-                            <div className="space-y-2">
-                              {(currentQuestion.explanation_json || currentQuestion.explanation).steps.map((step: string, sIdx: number) => (
-                                <div key={sIdx} className="flex gap-3">
-                                  <div className="w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center shrink-0">{sIdx + 1}</div>
-                                  <p className="text-gray-700 text-sm">{step}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* AI Bite-sized Breakdown */}
-                {currentQuestion?.explanation_json && (
-                  <div>
-                    {!simplifiedBullets && (
-                      <button
-                        onClick={handleSimplify}
-                        disabled={simplifying}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-primary/30 text-primary font-semibold text-sm hover:bg-primary/5 transition-all duration-200 disabled:opacity-60"
-                      >
-                        <Sparkles className={`w-4 h-4 ${simplifying ? 'animate-spin' : ''}`} />
-                        {simplifying ? 'Simplifying...' : '✨ Bite-sized Breakdown'}
-                      </button>
-                    )}
-
-                    {simplifiedBullets && (
-                      <div className="mt-4 bg-white rounded-2xl p-5 border border-primary/20 shadow-sm">
-                        <p className="text-xs font-bold text-primary uppercase tracking-widest mb-3 flex items-center gap-2">
-                          <Sparkles className="w-3.5 h-3.5" /> Simple Version
-                        </p>
-                        <ul className="space-y-2">
-                          {simplifiedBullets.map((bullet, idx) => (
-                            <li key={idx} className="text-gray-800 text-sm font-medium leading-relaxed">{bullet}</li>
-                          ))}
-                        </ul>
-                        <button
-                          onClick={() => setSimplifiedBullets(null)}
-                          className="mt-3 text-xs text-gray-400 hover:text-gray-600"
-                        >
-                          Hide
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+          {/* Right Panel: Explanation */}
+          <div className={`rounded-2xl shadow-inner border-2 p-6 md:p-8 flex flex-col transition-colors duration-300 ${
+            !showExplanation ? 'bg-slate-50 border-slate-100 items-center justify-center' :
+            isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+          }`}>
+            {!showExplanation ? (
+              <div className="text-center text-slate-400 mt-10">
+                <BookOpen className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                <p className="font-semibold text-slate-500 text-lg">Awaiting Answer</p>
+                <p className="text-sm mt-1">Submit your response to see the breakdown.</p>
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-4 duration-500">
+                
+                {/* Result Header */}
+                <div className={`flex items-center justify-between gap-4 p-4 rounded-xl mb-6 shadow-sm ${
+                  isCorrect ? 'bg-green-500' : 'bg-red-500'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    {isCorrect ? (
+                      <CheckCircle className="w-6 h-6 text-white" />
+                    ) : (
+                      <XCircle className="w-6 h-6 text-white" />
+                    )}
+                    <div>
+                      <h3 className="text-lg font-bold text-white">
+                        {isCorrect ? 'Correct! 🎉' : 'Not quite!'}
+                      </h3>
+                      <p className="text-xs text-white/90">
+                        {isCorrect ? 'Great job on this one.' : "Let's learn from it."}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={nextQuestion}
+                    className="shrink-0 px-5 py-2.5 rounded-lg font-bold text-sm flex items-center gap-1 bg-white text-slate-900 shadow-md hover:scale-105 transition-transform"
+                  >
+                    {currentIndex >= questions.length - 1 ? 'Finish' : 'Next'}
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Explanation Content */}
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                  {(currentQuestion?.explanation_json || currentQuestion?.explanation) && (
+                    <div className="space-y-4 mb-6">
+                      {typeof (currentQuestion.explanation_json || currentQuestion.explanation) === 'string' ? (
+                        <div className="bg-white/80 p-5 rounded-xl shadow-sm border border-white">
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Explanation</p>
+                          {(currentQuestion.explanation_json || currentQuestion.explanation).split(/(?:\d\.|Step|First|Second|Third|Next|Then|Finally)/i).filter(Boolean).map((part: string, idx: number) => (
+                            part.trim() && (
+                              <div key={idx} className="flex gap-3 mb-3 animate-in fade-in slide-in-from-left-2" style={{ animationDelay: `${idx * 100}ms` }}>
+                                <div className="w-6 h-6 rounded-md bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                                  {idx + 1}
+                                </div>
+                                <p className="text-slate-700 text-sm leading-relaxed">{part.trim()}</p>
+                              </div>
+                            )
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-4">
+                          {(currentQuestion.explanation_json || currentQuestion.explanation).why_correct && (
+                            <div className="bg-white/80 p-5 rounded-xl shadow-sm border border-white">
+                              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Why it&apos;s correct</p>
+                              <p className="text-slate-700 text-sm leading-relaxed">{(currentQuestion.explanation_json || currentQuestion.explanation).why_correct}</p>
+                            </div>
+                          )}
+                          {(currentQuestion.explanation_json || currentQuestion.explanation).key_understanding && (
+                            <div className="bg-white/80 p-5 rounded-xl shadow-sm border border-white">
+                              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Key Concept</p>
+                              <p className="text-slate-700 text-sm leading-relaxed">{(currentQuestion.explanation_json || currentQuestion.explanation).key_understanding}</p>
+                            </div>
+                          )}
+                          {(currentQuestion.explanation_json || currentQuestion.explanation).steps && Array.isArray((currentQuestion.explanation_json || currentQuestion.explanation).steps) && (
+                            <div className="bg-white/80 p-5 rounded-xl shadow-sm border border-white">
+                              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Steps to solve</p>
+                              <div className="space-y-3">
+                                {(currentQuestion.explanation_json || currentQuestion.explanation).steps.map((step: string, sIdx: number) => (
+                                  <div key={sIdx} className="flex gap-3">
+                                    <div className="w-6 h-6 rounded-md bg-slate-800 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{sIdx + 1}</div>
+                                    <p className="text-slate-700 text-sm leading-relaxed">{step}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* AI Bite-sized Breakdown */}
+                  {currentQuestion?.explanation_json && (
+                    <div className="mt-2">
+                      {!simplifiedBullets && (
+                        <button
+                          onClick={handleSimplify}
+                          disabled={simplifying}
+                          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-white border border-primary/20 text-primary font-bold text-sm hover:bg-primary/5 transition-all shadow-sm disabled:opacity-60"
+                        >
+                          <Sparkles className={`w-4 h-4 ${simplifying ? 'animate-spin' : ''}`} />
+                          {simplifying ? 'Simplifying...' : '✨ Get a Bite-sized Breakdown'}
+                        </button>
+                      )}
+
+                      {simplifiedBullets && (
+                        <div className="bg-white rounded-xl p-5 border border-primary/30 shadow-md">
+                          <div className="flex justify-between items-center mb-4">
+                            <p className="text-xs font-bold text-primary uppercase tracking-widest flex items-center gap-2">
+                              <Sparkles className="w-3.5 h-3.5" /> Simple Version
+                            </p>
+                            <button
+                              onClick={() => setSimplifiedBullets(null)}
+                              className="text-xs text-slate-400 hover:text-slate-600 font-semibold"
+                            >
+                              Hide
+                            </button>
+                          </div>
+                          <ul className="space-y-3">
+                            {simplifiedBullets.map((bullet, idx) => (
+                              <li key={idx} className="flex gap-3 text-slate-700 text-sm font-medium leading-relaxed">
+                                <span className="text-primary mt-0.5">•</span>
+                                {bullet}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

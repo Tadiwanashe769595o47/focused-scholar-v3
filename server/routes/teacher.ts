@@ -23,28 +23,39 @@ router.get('/dashboard', requireTeacher, async (req: Request, res: Response) => 
     .from('students')
     .select('*', { count: 'exact', head: true });
 
-  const { count: activeToday } = await supabase
-    .from('student_history')
-    .select('*', { count: 'exact', head: true })
+  const { data: activeStudents } = await supabase
+    .from('daily_tests')
+    .select('student_id')
     .eq('date', today);
+  
+  const activeToday = new Set(activeStudents?.map(a => a.student_id)).size || 0;
 
   const { count: testsToday } = await supabase
     .from('daily_tests')
     .select('*', { count: 'exact', head: true })
     .eq('date', today);
 
-  const { data: avgData } = await supabase
-    .from('student_history')
-    .select('score_percentage')
-    .gte('date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+  // Compute avg score from answers directly instead of dead history table
+  const { data: answersData } = await supabase
+    .from('student_answers')
+    .select('marks_awarded, is_correct')
+    .gte('answered_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
 
-  const avgScore = avgData?.length 
-    ? Math.round(avgData.reduce((sum: number, h: any) => sum + (h.score_percentage || 0), 0) / avgData.length)
+  let totalMarks = 0;
+  let totalPossible = 0;
+  answersData?.forEach((a: any) => {
+    totalMarks += a.marks_awarded || 0;
+    // Assuming 1 mark per question for simplicity if not fetched
+    totalPossible += 1; 
+  });
+
+  const avgScore = totalPossible > 0 
+    ? Math.round((totalMarks / totalPossible) * 100)
     : 0;
 
   res.json({ 
     total_students: totalStudents || 0, 
-    active_today: activeToday || 0, 
+    active_today: activeToday, 
     tests_generated: testsToday || 0, 
     average_score: avgScore 
   });

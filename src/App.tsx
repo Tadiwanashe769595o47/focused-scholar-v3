@@ -1,4 +1,6 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { useToastStore } from './stores/toastStore';
 import { useAuthStore } from './stores/authStore';
 import ToastContainer from './components/ToastContainer';
 import AuthCallback from './pages/AuthCallback';
@@ -13,12 +15,14 @@ import Homework from './pages/Homework';
 import HolidayWork from './pages/HolidayWork';
 import HolidaySubjectTest from './pages/HolidaySubjectTest';
 import Flashcards from './pages/Flashcards';
+import Study from './pages/Study';
 import Tutor from './pages/Tutor';
 import Settings from './pages/Settings';
 import Teacher from './pages/Teacher';
 import Reports from './pages/Reports';
 import TeacherImport from './pages/TeacherImport';
 import HolidayImport from './pages/HolidayImport';
+import Notifications from './pages/Notifications';
 import ParentDashboard from './pages/ParentDashboard';
 import { getRoleHomePath } from './lib/auth';
 
@@ -36,6 +40,26 @@ export default function App() {
   const needsOnboarding = useAuthStore((state) => state.user?.needsOnboarding);
   const userType = useAuthStore((state) => state.user?.type);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const finishGoogleAuth = useAuthStore((state) => state.finishGoogleAuth);
+  const addToast = useToastStore((state) => state.addToast);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Listen for custom protocol Google Auth success
+    const api = (window as any).electronAPI;
+    if (api && typeof api.onAuthGoogleSuccess === 'function') {
+      const removeListener = api.onAuthGoogleSuccess(async (token: string) => {
+        try {
+          await finishGoogleAuth(token);
+          addToast('Signed in with Google!', 'success');
+          navigate('/dashboard', { replace: true });
+        } catch (err: any) {
+          addToast(err.message || 'Google deep-link login failed', 'error');
+        }
+      });
+      return () => removeListener?.();
+    }
+  }, [finishGoogleAuth, addToast, navigate]);
 
   return (
     <>
@@ -53,11 +77,13 @@ export default function App() {
       <Route path="/test/:subjectCode" element={<ProtectedRoute allowedTypes={['student']}><SubjectTest /></ProtectedRoute>} />
       <Route path="/results/:date" element={<ProtectedRoute allowedTypes={['student']}><Results /></ProtectedRoute>} />
       <Route path="/history" element={<ProtectedRoute allowedTypes={['student']}><History /></ProtectedRoute>} />
+      <Route path="/notifications" element={<ProtectedRoute allowedTypes={['student']}><Notifications /></ProtectedRoute>} />
       <Route path="/reports" element={<ProtectedRoute allowedTypes={['student']}><Reports /></ProtectedRoute>} />
       <Route path="/homework" element={<ProtectedRoute allowedTypes={['student']}><Homework /></ProtectedRoute>} />
       <Route path="/holiday" element={<ProtectedRoute allowedTypes={['student']}><HolidayWork /></ProtectedRoute>} />
       <Route path="/holiday/subject/:subjectCode" element={<ProtectedRoute allowedTypes={['student']}><HolidaySubjectTest /></ProtectedRoute>} />
       <Route path="/flashcards" element={<ProtectedRoute allowedTypes={['student']}><Flashcards /></ProtectedRoute>} />
+      <Route path="/study" element={<ProtectedRoute allowedTypes={['student']}><Study /></ProtectedRoute>} />
       <Route path="/tutor" element={<ProtectedRoute allowedTypes={['student']}><Tutor /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute allowedTypes={['student']}><Settings /></ProtectedRoute>} />
       <Route path="/teacher" element={<ProtectedRoute allowedTypes={['teacher']}><Teacher /></ProtectedRoute>} />

@@ -5,14 +5,31 @@
     "output": "release",
     "buildResources": "build"
   },
+  "protocols": {
+    "name": "focused-scholar-auth",
+    "schemes": ["focused-scholar"]
+  },
   "files": [
     "dist/**/*",
     "dist-electron/**/*",
     "dist-server/**/*",
     "server/supabase-schema.sql",
+    "build/**/*",
     "package.json",
     ".env",
     ".env.example"
+  ],
+  "asar": true,
+  "asarUnpack": [
+    "dist-server/**/*",
+    ".env"
+  ],
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "Focused Scholar Team",
+      "repo": "focused-scholar-v3"
+    }
   ],
   "extraMetadata": {
     "main": "dist-electron/main.cjs"

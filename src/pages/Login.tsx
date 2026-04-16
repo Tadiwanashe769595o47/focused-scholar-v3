@@ -2,14 +2,17 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
+import { getApiUrl } from '../lib/api';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { getRoleHomePath } from '../lib/auth';
 import { motion } from 'framer-motion';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
   const [identifier, setIdentifier] = useState('');
   const [secret, setSecret] = useState('');
   const [type, setType] = useState<'student' | 'teacher' | 'holiday' | 'parent'>('student');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, loginWithGoogle } = useAuthStore();
@@ -52,11 +55,7 @@ export default function Login() {
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-accent/20 rounded-full blur-3xl" />
       </div>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md relative"
-      >
+      <div className="w-full max-w-md relative z-10">
         <div className="glass-card-border">
           <div className="glass-card p-8">
             <div className="text-center mb-8">
@@ -103,14 +102,23 @@ export default function Login() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Password
                 </label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={secret}
-                  onChange={(e) => setSecret(e.target.value)}
-                  className="w-full p-4 bg-white/60 backdrop-blur-sm border border-white/30 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={secret}
+                    onChange={(e) => setSecret(e.target.value)}
+                    className="w-full p-4 bg-white/60 backdrop-blur-sm border border-white/30 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all pr-12"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
 
               <motion.button
@@ -167,7 +175,7 @@ export default function Login() {
             )}
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }
