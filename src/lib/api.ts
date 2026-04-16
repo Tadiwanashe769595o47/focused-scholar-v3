@@ -1,13 +1,46 @@
 /// <reference types="vite/client" />
 
-const isElectron = navigator.userAgent.toLowerCase().indexOf(' electron/') > -1;
+const isElectron = navigator.userAgent.toLowerCase().indexOf(' electron/') > -1 || (window as any).electronAPI !== undefined;
 const API_URL = (import.meta as any).env?.DEV ? '/api' : 'http://localhost:3000/api';
+
+let serverReady = false;
+let serverCheckPromise: Promise<boolean> | null = null;
+
+async function waitForServer(timeout = 15000): Promise<boolean> {
+  if (serverReady) return true;
+  
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    try {
+      const res = await fetch('http://localhost:3000/api/health', { 
+        method: 'GET',
+        signal: AbortSignal.timeout(2000)
+      });
+      if (res.ok) {
+        serverReady = true;
+        return true;
+      }
+    } catch {}
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  return false;
+}
 
 export function getApiUrl(path: string): string {
   if (isElectron) {
     return `http://localhost:3000/api${path}`;
   }
   return `${API_URL}${path}`;
+}
+
+export async function ensureServerReady(): Promise<boolean> {
+  if (!isElectron) return true;
+  if (serverReady) return true;
+  
+  if (!serverCheckPromise) {
+    serverCheckPromise = waitForServer();
+  }
+  return serverCheckPromise;
 }
 
 export const isOnline = () => navigator.onLine;
@@ -42,6 +75,9 @@ let pendingRequests: Array<{
 }> = [];
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
+  // Wait for server to be ready in Electron app
+  await ensureServerReady();
+  
   const authStorage = localStorage.getItem('auth-storage');
   let token: string | null = null;
   
