@@ -284,14 +284,41 @@ app.whenReady().then(async () => {
     serverProcess.stdout?.on('data', (data) => console.log(`Server: ${data}`));
     serverProcess.stderr?.on('data', (data) => console.error(`Server Error: ${data}`));
     
+    serverProcess.on('error', (err) => {
+      console.error('Failed to start server process:', err);
+      dialog.showErrorBox('Server Error', `Failed to start server: ${err.message}`);
+    });
+    
     serverProcess.on('exit', (code) => {
       if (code !== 0 && code !== null) {
+        console.error('Server exited with code:', code);
         dialog.showErrorBox('Background Server Error', `The server failed with code ${code}. \n\nThis usually happens if Port 3000 is still in use by another app.`);
       }
     });
 
-// Wait for server to actually start
-    await new Promise((resolve) => setTimeout(resolve, 4000));
+    // Wait for server and verify it's actually running
+    let serverStarted = false;
+    for (let i = 0; i < 15; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      try {
+        const testReq = await fetch('http://localhost:3000/api/health', { 
+          method: 'GET',
+          signal: AbortSignal.timeout(2000)
+        });
+        if (testReq.ok) {
+          serverStarted = true;
+          console.log('Server verified running after', i + 1, 'seconds');
+          break;
+        }
+      } catch {
+        console.log('Waiting for server...', i + 1);
+      }
+    }
+    
+    if (!serverStarted) {
+      console.error('Server did not start in time');
+      dialog.showErrorBox('Server Timeout', 'Server failed to start. Please restart the application.');
+    }
   } else if (isDev) {
     console.log('Running in dev mode - expecting external server on port 3000');
   }
