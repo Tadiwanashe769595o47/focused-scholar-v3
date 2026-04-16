@@ -515,3 +515,20 @@ body::after {
   border-radius: 9999px;
   background: linear-gradient(180deg, #6366F1 0%, #8B5CF6 100%);
 }
+
+/* 3D Flip Animation */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}

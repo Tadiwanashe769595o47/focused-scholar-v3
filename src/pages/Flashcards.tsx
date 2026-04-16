@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useDashboardStore } from '../stores/dashboardStore';
 import { apiFetch } from '../lib/api';
-import { ChevronLeft, BookOpen, Check, X, RotateCcw, Shuffle, Sparkles } from 'lucide-react';
+import { ChevronLeft, BookOpen, Check, X, RotateCcw, Shuffle, Sparkles, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { flashcardsData } from '../data/flashcardsContent';
 
 export default function Flashcards() {
   const navigate = useNavigate();
-  const { token } = useAuthStore();
+  const { token, user } = useAuthStore();
   const subjects = useDashboardStore((state) => state.subjects);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [flashcards, setFlashcards] = useState<any[]>([]);
@@ -16,11 +16,15 @@ export default function Flashcards() {
   const [flipped, setFlipped] = useState(false);
   const [loading, setLoading] = useState(false);
   const [shuffled, setShuffled] = useState(false);
+  const [knownCards, setKnownCards] = useState<Set<number>>(new Set());
+  const [learningCards, setLearningCards] = useState<Set<number>>(new Set());
 
   const loadFlashcards = (subjectCode: string) => {
     setSelectedSubject(subjectCode);
     setLoading(true);
     setShuffled(false);
+    setKnownCards(new Set());
+    setLearningCards(new Set());
     try {
       const data = flashcardsData.filter(f => f.subject_code === subjectCode);
       setFlashcards(data);
@@ -45,7 +49,31 @@ export default function Flashcards() {
     setShuffled(true);
   };
 
+  const handleKnown = () => {
+    setKnownCards(prev => new Set([...prev, currentIndex]));
+    if (currentIndex < flashcards.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+      setFlipped(false);
+    }
+  };
+
+  const handleLearning = () => {
+    setLearningCards(prev => new Set([...prev, currentIndex]));
+    if (currentIndex < flashcards.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+      setFlipped(false);
+    }
+  };
+
+  const restartCards = () => {
+    setCurrentIndex(0);
+    setFlipped(false);
+    setKnownCards(new Set());
+    setLearningCards(new Set());
+  };
+
   const currentCard = flashcards[currentIndex];
+  const progress = flashcards.length > 0 ? Math.round(((knownCards.size + learningCards.size) / flashcards.length) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -55,6 +83,11 @@ export default function Flashcards() {
             <ChevronLeft className="w-6 h-6" />
           </button>
           <h1 className="text-xl font-bold text-gray-900">Flashcards</h1>
+          {selectedSubject && (
+            <button onClick={() => setSelectedSubject(null)} className="ml-auto text-sm text-primary hover:underline">
+              Change Subject
+            </button>
+          )}
         </div>
       </div>
 
@@ -92,21 +125,60 @@ export default function Flashcards() {
           </div>
         ) : currentCard ? (
           <div>
+            {/* Progress Bar */}
+            <div className="mb-6">
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
+                <span>Progress: {knownCards.size + learningCards.size} / {flashcards.length}</span>
+                <span className="flex gap-4">
+                  <span className="flex items-center gap-1"><ThumbsUp className="w-4 h-4 text-green-500" /> {knownCards.size}</span>
+                  <span className="flex items-center gap-1"><ThumbsDown className="w-4 h-4 text-red-500" /> {learningCards.size}</span>
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-gradient-to-r from-green-400 to-primary h-2 rounded-full transition-all duration-500"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Card Counter */}
             <div className="text-sm text-gray-500 mb-4">
               Card {currentIndex + 1} of {flashcards.length}
             </div>
 
-            {/* Flashcard */}
-            <div
-              onClick={() => setFlipped(!flipped)}
-              className="bg-white rounded-2xl shadow-lg p-8 min-h-64 cursor-pointer hover:shadow-xl transition-all mb-6"
-            >
-              <div className="text-center">
-                <p className="text-sm text-gray-500 mb-4">{currentCard.topic}</p>
-                <p className="text-xl font-semibold text-gray-900">
-                  {flipped ? currentCard.back : currentCard.front}
-                </p>
-                <p className="text-sm text-gray-400 mt-4">Click to {flipped ? 'see question' : 'see answer'}</p>
+            {/* Flashcard with 3D Flip */}
+            <div className="relative w-full h-80 perspective-1000 mb-6">
+              <div
+                onClick={() => setFlipped(!flipped)}
+                className={`w-full h-full relative preserve-3d transition-transform duration-500 cursor-pointer ${flipped ? 'rotate-y-180' : ''}`}
+                style={{
+                  transformStyle: 'preserve-3d',
+                  transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                }}
+              >
+                {/* Front */}
+                <div 
+                  className="absolute inset-0 bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center justify-center backface-hidden"
+                  style={{ backfaceVisibility: 'hidden' }}
+                >
+                  <div className="text-sm text-gray-500 mb-4">{currentCard.topic}</div>
+                  <p className="text-xl font-semibold text-gray-900 text-center">{currentCard.front}</p>
+                  <p className="text-sm text-gray-400 mt-6">Click to reveal answer</p>
+                </div>
+
+                {/* Back */}
+                <div 
+                  className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 rounded-2xl shadow-lg p-8 flex flex-col items-center justify-center backface-hidden"
+                  style={{ 
+                    backfaceVisibility: 'hidden',
+                    transform: 'rotateY(180deg)'
+                  }}
+                >
+                  <div className="text-sm text-primary font-semibold mb-4">Answer</div>
+                  <p className="text-xl font-semibold text-gray-900 text-center">{currentCard.back}</p>
+                  <p className="text-sm text-gray-400 mt-6">Click to see question</p>
+                </div>
               </div>
             </div>
 
@@ -115,26 +187,53 @@ export default function Flashcards() {
               <button
                 onClick={() => { setCurrentIndex(Math.max(0, currentIndex - 1)); setFlipped(false); }}
                 disabled={currentIndex === 0}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg disabled:opacity-50"
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-300"
               >
                 Previous
               </button>
 
-              <div className="flex gap-2">
-                <button className="p-3 bg-red-100 text-red-600 rounded-full hover:bg-red-200">
+              {/* Know / Learning Buttons */}
+              <div className="flex gap-3">
+                <button 
+                  onClick={handleLearning}
+                  className="flex items-center gap-2 px-4 py-3 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-all"
+                >
                   <X className="w-5 h-5" />
+                  <span className="font-medium">Still Learning</span>
                 </button>
-                <button className="p-3 bg-green-100 text-green-600 rounded-full hover:bg-green-200">
+                <button 
+                  onClick={handleKnown}
+                  className="flex items-center gap-2 px-4 py-3 bg-green-100 text-green-600 rounded-xl hover:bg-green-200 transition-all"
+                >
                   <Check className="w-5 h-5" />
+                  <span className="font-medium">Got It!</span>
                 </button>
               </div>
 
               <button
                 onClick={() => { setCurrentIndex(Math.min(flashcards.length - 1, currentIndex + 1)); setFlipped(false); }}
                 disabled={currentIndex === flashcards.length - 1}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg disabled:opacity-50"
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-300"
               >
                 Next
+              </button>
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="flex justify-center gap-4 mt-6">
+              <button 
+                onClick={restartCards}
+                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Restart
+              </button>
+              <button 
+                onClick={shuffleCards}
+                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900"
+              >
+                <Shuffle className="w-4 h-4" />
+                Shuffle
               </button>
             </div>
           </div>
