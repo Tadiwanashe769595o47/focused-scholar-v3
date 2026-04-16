@@ -1,7 +1,7 @@
 {
   "name": "focused-scholar-v3",
-  "version": "3.0.6",
-  "description": "Premium IGCSE AI Academic Assistant and Board Revision Platform",
+  "version": "3.1.0",
+  "description": "Premium IGCSE AI Academic Assistant - Offline Capable",
   "author": "Focused Scholar Team",
   "repository": {
     "type": "git",

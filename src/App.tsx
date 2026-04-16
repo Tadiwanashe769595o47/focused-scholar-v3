@@ -25,6 +25,7 @@ import HolidayImport from './pages/HolidayImport';
 import Notifications from './pages/Notifications';
 import ParentDashboard from './pages/ParentDashboard';
 import { getRoleHomePath } from './lib/auth';
+import { loadOfflineQuestions } from './lib/loadOfflineQuestions';
 
 function ProtectedRoute({ children, allowedTypes }: { children: React.ReactNode; allowedTypes?: string[] }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -43,6 +44,11 @@ export default function App() {
   const finishGoogleAuth = useAuthStore((state) => state.finishGoogleAuth);
   const addToast = useToastStore((state) => state.addToast);
   const navigate = useNavigate();
+
+  // Load offline questions on app start
+  useEffect(() => {
+    loadOfflineQuestions();
+  }, []);
 
   useEffect(() => {
     // Listen for custom protocol Google Auth success

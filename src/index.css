@@ -20,6 +20,12 @@
   --color-success: #10B981;
   --color-error: #EF4444;
   --color-warning: #F59E0B;
+  
+  /* Portal Specific Colors */
+  --portal-blue: #0A2540;
+  --exam-tip-bg: #FFFBF0;
+  --exam-tip-border: #FBBF24;
+  --step-circle-bg: #111827;
 }
 
 * {

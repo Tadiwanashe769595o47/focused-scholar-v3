@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useDashboardStore } from '../stores/dashboardStore';
+import { useOfflineStore } from '../stores/offlineStore';
 import { apiFetch } from '../lib/api';
 import { ChevronLeft, ChevronRight, Timer, CheckCircle, XCircle, AlertCircle, BookOpen, Sparkles } from 'lucide-react';
 import Confetti from 'react-confetti';
@@ -77,12 +78,12 @@ export default function SubjectTest() {
 
   // Fetch test on mount
   useEffect(() => {
-    const fetchTest = async () => {
-      if (!user || !token) return;
+    if (!user?.id || !subjectCode || !token) return;
 
+    const fetchTest = async () => {
       const today = new Date().toISOString().split('T')[0];
-      const cacheKey = `test_${user.id}_${today}_${subjectCode}`;
-      
+      const cacheKey = `test_${user.id}_${subjectCode}_${today}`;
+        
       // Try local storage first for instant UI loading
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
@@ -101,7 +102,8 @@ export default function SubjectTest() {
         }
       }
 
-      // Always fetch fresh data to get the accurate current_index
+      // Try online API first
+      let onlineSuccess = false;
       try {
         const tests = await apiFetch(`/tests/${user.id}/${today}?subject=${subjectCode}`);
 
@@ -112,18 +114,34 @@ export default function SubjectTest() {
 
           if (test.questions_data && test.questions_data.length > 0) {
             setQuestions(test.questions_data);
-            // Resume from existing index if available
             if (test.current_index && test.current_index < test.questions_data.length) {
               setCurrentIndex(test.current_index);
             }
             setTimeLeft(QUESTION_TIMERS[test.questions_data[test.current_index || 0]?.question_type] || 60);
           }
+          onlineSuccess = true;
         }
       } catch (err) {
-        console.error('Error fetching test:', err);
-      } finally {
-        setLoading(false);
+        console.log('Online fetch failed, trying offline questions:', err);
       }
+
+      // If online failed or no questions, try offline questions
+      if (!onlineSuccess) {
+        const offlineQuestions = useOfflineStore.getState().getQuestions(subjectCode);
+        if (offlineQuestions && offlineQuestions.length > 0) {
+          console.log(`Loading ${offlineQuestions.length} offline questions for ${subjectCode}`);
+          
+          // Shuffle for variety
+          const shuffled = [...offlineQuestions].sort(() => Math.random() - 0.5);
+          const selectedQuestions = shuffled.slice(0, 20);
+          
+          setQuestions(selectedQuestions);
+          setTestId(-1); // Offline test ID
+          setTimeLeft(QUESTION_TIMERS[selectedQuestions[0]?.question_type] || 60);
+        }
+      }
+
+      setLoading(false);
     };
 
     fetchTest();
@@ -132,12 +150,10 @@ export default function SubjectTest() {
   // Timer countdown - auto-submit when time runs out
   useEffect(() => {
     if (timeLeft <= 0) {
-      // Time's up - auto-submit with current answer (or null if none selected)
       if (!showExplanation && !completed) {
         if (selectedAnswer !== null) {
           handleSubmitAnswer();
         } else {
-          // No answer selected when time runs out - move to next or mark complete
           if (currentIndex >= questions.length - 1) {
             setCompleted(true);
           } else {
@@ -164,11 +180,9 @@ export default function SubjectTest() {
 
   const handleSubmitAnswer = useCallback(async () => {
     // STRICT VALIDATION: Ensure student has actually picked an answer
-    if (!currentQuestion || !testId || !token || submitting) {
+    if (!currentQuestion || submitting) {
       console.error('Submit blocked: missing required data', { 
-        hasQuestion: !!currentQuestion, 
-        hasTestId: !!testId, 
-        hasToken: !!token,
+        hasQuestion: !!currentQuestion,
         hasSelectedAnswer: selectedAnswer !== null,
         submitting 
       });
@@ -181,15 +195,55 @@ export default function SubjectTest() {
       return;
     }
 
+    // Check if offline mode (testId === -1)
+    const isOfflineMode = testId === -1;
+
     console.log('Submitting answer:', { 
       questionId: currentQuestion.id, 
       answer: selectedAnswer, 
-      timeSpent: (QUESTION_TIMERS[currentQuestion.question_type] || 60) - timeLeft 
+      offlineMode: isOfflineMode
     });
 
     setSubmitting(true);
     setAnswers(prev => ({ ...prev, [currentIndex]: selectedAnswer }));
     setAnsweredCount(prev => prev + 1);
+
+    // Handle offline vs online submission
+    if (isOfflineMode) {
+      // Offline mode - save locally
+      const isCorrect = selectedAnswer === currentQuestion.correct_answer;
+      const marks = isCorrect ? (currentQuestion.marks || 1) : 0;
+      
+      // Save to offline store
+      useOfflineStore.getState().saveAnswer(currentQuestion.id, selectedAnswer, isCorrect, marks);
+      
+      // Show result immediately
+      setIsCorrect(isCorrect);
+      setShowExplanation(true);
+      
+      setScore(prev => ({
+        ...prev,
+        correct: prev.correct + (isCorrect ? 1 : 0),
+        total: prev.total + 1,
+        marks: prev.marks + marks,
+        maxMarks: prev.maxMarks + (currentQuestion.marks || 1)
+      }));
+
+      // Add explanation from question data
+      if (currentQuestion.explanation) {
+        // Already have explanation from offline questions
+      }
+
+      setSubmitting(false);
+      return;
+    }
+
+    // Online mode - submit to API
+    if (!testId || !token) {
+      console.error('Submit blocked: missing testId or token for online mode');
+      setSubmitting(false);
+      return;
+    }
 
     // Submit answer to API
     try {
