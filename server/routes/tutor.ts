@@ -7,15 +7,28 @@ const router = Router();
 // PRIMARY AI: Use DeepSeek as it's fast and capable
 // Fallback order: DeepSeek -> Qwen (Nvidia) -> ChatGPT
 
-const deepseekClient = new OpenAI({
-  apiKey: 'sk-76d1d49725e5451db9aa6728a097a600',
-  baseURL: 'https://api.deepseek.com/v1'
-});
+let deepseekClient: any = null;
+let nvidiaClient: any = null;
 
-const nvidiaClient = new OpenAI({
-  apiKey: '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',
-  baseURL: 'https://integrate.api.nvidia.com/v1'
-});
+try {
+  deepseekClient = new OpenAI({
+    apiKey: process.env.DEEPSEEK_API_KEY || 'sk-76d1d49725e5451db9aa6728a097a600',
+    baseURL: 'https://api.deepseek.com/v1'
+  });
+  console.log('DeepSeek client initialized successfully');
+} catch (err) {
+  console.error('Failed to initialize DeepSeek client:', err);
+}
+
+try {
+  nvidiaClient = new OpenAI({
+    apiKey: process.env.NVIDIA_API_KEY || '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',
+    baseURL: 'https://integrate.api.nvidia.com/v1'
+  });
+  console.log('Nvidia client initialized successfully');
+} catch (err) {
+  console.error('Failed to initialize Nvidia client:', err);
+}
 
 // Model configurations
 const CHAT_MODEL = 'deepseek-chat';  // Fast, efficient chat
@@ -73,17 +86,11 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
     const lastMessage = messages[messages.length - 1];
     const hasImage = lastMessage.image || (Array.isArray(lastMessage.content) && lastMessage.content.some((c: any) => c.type === 'image_url'));
 
-    // Use DeepSeek as primary AI
-    let aiClient = deepseekClient;
-    let model = hasImage ? 'deepseek-chat' : CHAT_MODEL;
-    let useSystemPrompt = TUTOR_SYSTEM_PROMPT;
-
-    // If image, try Nvidia vision model as fallback (better for images)
-    if (hasImage) {
+    // Try DeepSeek first
+    if (deepseekClient) {
       try {
-        // Try with images using Qwen via Nvidia
-        const completion = await nvidiaClient.chat.completions.create({
-          model: 'qwen/qwen3.5-397b-a17b',
+        const completion = await deepseekClient.chat.completions.create({
+          model: CHAT_MODEL,
           messages: [
             { role: 'system', content: TUTOR_SYSTEM_PROMPT },
             ...messages.map(m => ({
@@ -92,51 +99,60 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
             }))
           ],
           max_tokens: 1500,
-          temperature: 0.7,
-          top_p: 0.95
+          temperature: 0.7
         });
-        res.json({ response: completion.choices[0]?.message?.content || "I can see the image. Let me provide a detailed explanation..." });
+
+        res.json({ response: completion.choices[0]?.message?.content || "I'm ready to help! Ask me anything about your studies." });
         return;
-      } catch (visionErr) {
-        console.log('Vision model failed, trying text-only:', visionErr);
+      } catch (deepseekErr: any) {
+        console.error('DeepSeek failed:', deepseekErr.message);
       }
     }
 
-    if (aiClient) {
-      const completion = await aiClient.chat.completions.create({
-        model: CHAT_MODEL,
-        messages: [
-          { role: 'system', content: TUTOR_SYSTEM_PROMPT },
-          ...messages.map(m => ({
-            role: m.role,
-            content: m.content
-          }))
-        ],
-        max_tokens: 1500,
-        temperature: 0.7
-      });
-
-      res.json({ response: completion.choices[0]?.message?.content || "I'm ready to help! Ask me anything about your studies." });
-    } else {
-      // Fallback to local Ollama if no cloud AI is available
+    // Try Nvidia as fallback
+    if (nvidiaClient) {
       try {
-        const ollamaRes = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
-          method: 'POST',
-          body: JSON.stringify({
-            model: OLLAMA_MODEL,
-            messages: [
-              { role: 'system', content: TUTOR_SYSTEM_PROMPT },
-              ...messages
-            ],
-            stream: false
-          })
+        const completion = await nvidiaClient.chat.completions.create({
+          model: 'nvidia/llama-3.1-nemotron-70b-instruct',
+          messages: [
+            { role: 'system', content: TUTOR_SYSTEM_PROMPT },
+            ...messages.map(m => ({
+              role: m.role,
+              content: m.content
+            }))
+          ],
+          max_tokens: 1500,
+          temperature: 0.7
         });
-        const data = await ollamaRes.json();
-        res.json({ response: data.message?.content || "Local AI is taking a nap." });
-      } catch (ollamaErr) {
-        res.status(503).json({ error: 'AI service not configured and local fallback failed' });
+        res.json({ response: completion.choices[0]?.message?.content || "I'm ready to help! Ask me anything about your studies." });
+        return;
+      } catch (nvidiaErr: any) {
+        console.error('Nvidia failed:', nvidiaErr.message);
       }
     }
+
+    // Try Ollama local fallback
+    try {
+      const ollamaRes = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+        method: 'POST',
+        body: JSON.stringify({
+          model: OLLAMA_MODEL,
+          messages: [
+            { role: 'system', content: TUTOR_SYSTEM_PROMPT },
+            ...messages
+          ],
+          stream: false
+        })
+      });
+      const data = await ollamaRes.json();
+      res.json({ response: data.message?.content || "Local AI is taking a nap." });
+      return;
+    } catch (ollamaErr) {
+      console.error('Ollama failed:', ollamaErr);
+    }
+
+    // If we get here, all AI services failed
+    res.status(503).json({ response: "I'm having trouble connecting to my AI brain right now. But I can still help! Try:\n\n1. Asking me about a specific topic\n2. Reviewing your flashcards\n3. Taking a practice test\n\nThe AI service should be back soon!" });
   } catch (error: any) {
     console.error('Tutor error:', error.message);
     
@@ -160,36 +176,62 @@ Use clear headers if needed. Keep it concise.`;
 
   try {
     let bullets: string;
-    const aiClient = deepseekClient;
-    const model = CHAT_MODEL;
 
-    if (aiClient) {
-      const completion = await aiClient.chat.completions.create({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Explanation: ${explanation}` }
-        ],
-        max_tokens: 300,
-        temperature: 0.5
-      });
-      bullets = completion.choices[0]?.message?.content || explanation;
-    } else {
-      return res.status(503).json({ error: 'AI service not configured' });
+    // Try DeepSeek first
+    if (deepseekClient) {
+      try {
+        const completion = await deepseekClient.chat.completions.create({
+          model: CHAT_MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Explanation: ${explanation}` }
+          ],
+          max_tokens: 300,
+          temperature: 0.5
+        });
+        bullets = completion.choices[0]?.message?.content || explanation;
+        res.json({ bullets: parseBullets(bullets) });
+        return;
+      } catch (err) {
+        console.error('DeepSeek simplify failed:', err);
+      }
     }
 
-    // Parse the bullet lines
-    const lines = bullets
-      .split('\n')
-      .map((l: string) => l.trim())
-      .filter((l: string) => l.length > 0 && (l.startsWith('•') || l.startsWith('-') || l.match(/^[🌟💡🔑🎯✅🧠📚⚡🌈🔥]/u)));
+    // Try Nvidia fallback
+    if (nvidiaClient) {
+      try {
+        const completion = await nvidiaClient.chat.completions.create({
+          model: 'nvidia/llama-3.1-nemotron-70b-instruct',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Explanation: ${explanation}` }
+          ],
+          max_tokens: 300,
+          temperature: 0.5
+        });
+        bullets = completion.choices[0]?.message?.content || explanation;
+        res.json({ bullets: parseBullets(bullets) });
+        return;
+      } catch (err) {
+        console.error('Nvidia simplify failed:', err);
+      }
+    }
 
-    res.json({ bullets: lines.length > 0 ? lines : bullets.split('\n').filter((l: string) => l.trim()) });
+    // All failed
+    res.status(503).json({ error: 'AI service temporarily unavailable' });
   } catch (error: any) {
     console.error('Simplify explanation error:', error.message);
     res.status(500).json({ error: 'AI simplification temporarily unavailable' });
   }
 });
+
+function parseBullets(text: string): string[] {
+  const lines = text
+    .split('\n')
+    .map((l: string) => l.trim())
+    .filter((l: string) => l.length > 0 && (l.startsWith('•') || l.startsWith('-') || l.match(/^[🌟💡🔑🎯✅🧠📚⚡🌈🔥]/u)));
+  return lines.length > 0 ? lines : text.split('\n').filter((l: string) => l.trim());
+}
 
 router.post('/define', requireAuth, async (req: Request, res: Response) => {
   const { word, context } = req.body;
@@ -208,25 +250,49 @@ Keep the definition short (1-2 sentences) and include an example of usage.`;
 
   try {
     let definition: string;
-    const aiClient = deepseekClient;
-    const model = CHAT_MODEL;
 
-    if (aiClient) {
-      const completion = await aiClient.chat.completions.create({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        max_tokens: 150,
-        temperature: 0.3
-      });
-      definition = completion.choices[0]?.message?.content || 'Sorry, I couldn\'t find a definition for that.';
-    } else {
-      return res.status(503).json({ error: 'AI service not configured' });
+    // Try DeepSeek first
+    if (deepseekClient) {
+      try {
+        const completion = await deepseekClient.chat.completions.create({
+          model: CHAT_MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          max_tokens: 150,
+          temperature: 0.3
+        });
+        definition = completion.choices[0]?.message?.content || 'Sorry, I couldn\'t find a definition for that.';
+        res.json({ definition });
+        return;
+      } catch (err) {
+        console.error('DeepSeek define failed:', err);
+      }
     }
 
-    res.json({ definition });
+    // Try Nvidia fallback
+    if (nvidiaClient) {
+      try {
+        const completion = await nvidiaClient.chat.completions.create({
+          model: 'nvidia/llama-3.1-nemotron-70b-instruct',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          max_tokens: 150,
+          temperature: 0.3
+        });
+        definition = completion.choices[0]?.message?.content || 'Sorry, I couldn\'t find a definition for that.';
+        res.json({ definition });
+        return;
+      } catch (err) {
+        console.error('Nvidia define failed:', err);
+      }
+    }
+
+    // All failed
+    res.status(503).json({ error: 'AI dictionary temporarily unavailable' });
   } catch (error: any) {
     console.error('Dictionary error:', error.message);
     res.status(500).json({ error: 'AI dictionary temporarily unavailable' });

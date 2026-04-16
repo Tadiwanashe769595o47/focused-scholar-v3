@@ -107,13 +107,40 @@ async function getTopicPerformance(studentId: number, subjectCode: string): Prom
 }
 
 async function selectForNewStudent(subjectCode: string, testSize: number): Promise<Question[]> {
+  // First, get total count of questions for this subject
+  const { count } = await supabase
+    .from('questions')
+    .select('*', { count: 'exact', head: true })
+    .eq('subject_code', subjectCode);
+
+  console.log(`Total questions in DB for ${subjectCode}: ${count}`);
+
+  if (!count || count === 0) {
+    console.log(`NO QUESTIONS FOUND IN DATABASE for ${subjectCode}!`);
+    return [];
+  }
+
+  // If fewer questions than testSize, get all of them
+  const actualLimit = Math.min(count, 100);
+  
   const { data: questions, error } = await supabase
     .from('questions')
     .select('id, topic, difficulty')
     .eq('subject_code', subjectCode)
-    .limit(100);
+    .limit(actualLimit);
 
-  if (error || !questions) return [];
+  if (error || !questions) {
+    console.log(`Error fetching questions for ${subjectCode}:`, error);
+    return [];
+  }
+
+  console.log(`Fetched ${questions.length} questions for ${subjectCode}`);
+  
+  // If we don't have enough, just return what we have
+  if (questions.length < testSize) {
+    console.log(`Only ${questions.length} questions available for ${subjectCode}, using all of them`);
+    return shuffleArray(questions);
+  }
 
   const distribution = {
     covered: 0.6,
@@ -148,6 +175,13 @@ async function selectForNewStudent(subjectCode: string, testSize: number): Promi
   selected.push(...shuffleArray(categorized.covered).slice(0, coveredCount));
   selected.push(...shuffleArray(categorized.preview).slice(0, previewCount));
   selected.push(...shuffleArray(categorized.stretch).slice(0, stretchCount));
+
+  // If we don't have enough, fill with whatever we have
+  if (selected.length < testSize) {
+    const allRemaining = [...categorized.covered, ...categorized.preview, ...categorized.stretch]
+      .filter(q => !selected.find(s => s.id === q.id));
+    selected.push(...shuffleArray(allRemaining).slice(0, testSize - selected.length));
+  }
 
   return shuffleArray(selected);
 }
